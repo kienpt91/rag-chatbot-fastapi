@@ -128,6 +128,10 @@ class SessionStore(Protocol):
         """The last `limit` turns, oldest first."""
         ...
 
+    async def purge_sessions(self, tenant_id: str, older_than: datetime) -> int:
+        """Delete the tenant's sessions last active before `older_than`, with their messages (retention)."""
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class UsageEntry:
