@@ -106,7 +106,9 @@ def check_lock(lock: Path, input_file: Path, index: str, cutoff: datetime) -> tu
             uploaded = datetime.fromisoformat(found["upload_time_iso_8601"].replace("Z", "+00:00"))
             if uploaded > cutoff:
                 too_new.append(f"{found['filename']}: uploaded {uploaded.isoformat()}")
-    print(f"{lock.name}: checked {files_checked} files of {len(pins)} pinned packages against cutoff {cutoff.isoformat()}")
+    print(
+        f"{lock.name}: checked {files_checked} files of {len(pins)} pinned packages against cutoff {cutoff.isoformat()}"
+    )
     return (1 if too_new else 0), files_checked, too_new
 
 
@@ -136,7 +138,10 @@ def main(argv: list[str]) -> int:
     pairs = (
         [(Path(args.lock), Path(args.input))]
         if args.lock
-        else [(ROOT / "requirements.txt", ROOT / "requirements.in"), (ROOT / "requirements-dev.txt", ROOT / "requirements-dev.in")]
+        else [
+            (ROOT / "requirements.txt", ROOT / "requirements.in"),
+            (ROOT / "requirements-dev.txt", ROOT / "requirements-dev.in"),
+        ]
     )
     problems: list[str] = []
     worst = 0
