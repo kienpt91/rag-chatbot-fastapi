@@ -31,6 +31,7 @@ _KEYS = frozenset(
         "daily_budget",
         "confidence_threshold",
         "refusal_message",
+        "link_hosts",
     }
 )
 
@@ -77,10 +78,20 @@ class Tenant:
     daily_budget_micros: int | None = None
     confidence_threshold: float | None = None
     refusal_message: str | None = None
+    link_hosts: frozenset[str] = frozenset()  # hosts, besides the origins', the assistant may link to
 
     def origin_allowed(self, origin: str) -> bool:
         normalised = normalise_origin(origin)
         return normalised is not None and normalised in self.allowed_origins
+
+
+def host_of_origin(origin: str) -> str:
+    return (urlsplit(origin).hostname or "").casefold()
+
+
+def linkable_hosts(tenant: Tenant) -> frozenset[str]:
+    """The hosts an answer for this tenant may link to: those of its allowed origins and its declared link hosts."""
+    return frozenset({host_of_origin(o) for o in tenant.allowed_origins} | set(tenant.link_hosts))
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +152,16 @@ def parse_tenants(data: object) -> TenantDirectory:
             if origin.startswith("http://") and host not in _LOOPBACK:
                 raise ConfigurationError(f"{where}.allowed_origins: {raw!r} must be https (http only for localhost)")
             origins.add(origin)
+        link_hosts: set[str] = set()
+        for raw in _string_list(entry, "link_hosts", where):
+            host = raw.strip().rstrip(".").casefold()
+            try:
+                host = host.encode("idna").decode("ascii")
+            except UnicodeError:
+                host = ""
+            if not _HOSTNAME.match(host):
+                raise ConfigurationError(f"{where}.link_hosts: {raw!r} is not a host name")
+            link_hosts.add(host)
         hashes = set(_string_list(entry, "api_key_sha256", where))
         for digest in hashes:
             if not _HEX64.match(digest):
@@ -172,5 +193,6 @@ def parse_tenants(data: object) -> TenantDirectory:
             daily_budget_micros=None if budget is None else usd_to_micros(budget, f"{where}.daily_budget"),
             confidence_threshold=None if threshold is None else float(threshold),
             refusal_message=refusal,
+            link_hosts=frozenset(link_hosts),
         )
     return TenantDirectory(tenants)

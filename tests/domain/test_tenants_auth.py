@@ -22,7 +22,7 @@ from rag_chatbot.domain.errors import (
     InvalidRequestError,
     OriginNotAllowedError,
 )
-from rag_chatbot.domain.tenants import Tenant, TenantDirectory, normalise_origin, parse_tenants
+from rag_chatbot.domain.tenants import Tenant, TenantDirectory, linkable_hosts, normalise_origin, parse_tenants
 
 SECRET = bytes(range(32))
 SECRET_B64 = base64.urlsafe_b64encode(SECRET).rstrip(b"=").decode()
@@ -97,6 +97,7 @@ def test_a_tenant_file_is_parsed_with_all_its_settings() -> None:
                     "daily_budget": "2.50",
                     "confidence_threshold": 0.4,
                     "refusal_message": "Call us.",
+                    "link_hosts": ["Book.Partner.example", "bücher.example"],
                 }
             ]
         }
@@ -104,6 +105,8 @@ def test_a_tenant_file_is_parsed_with_all_its_settings() -> None:
     tenant = tenants_get(tenants, "acme")
     assert tenant.daily_budget_micros == 2_500_000 and tenant.confidence_threshold == 0.4
     assert tenant.refusal_message == "Call us." and tenants.all_origins() == {"https://www.acme.example"}
+    assert tenant.link_hosts == {"book.partner.example", "xn--bcher-kva.example"}
+    assert linkable_hosts(tenant) == {"www.acme.example", "book.partner.example", "xn--bcher-kva.example"}
 
 
 def tenants_get(tenants: TenantDirectory, tenant_id: str) -> Tenant:
@@ -134,6 +137,9 @@ def tenants_get(tenants: TenantDirectory, tenant_id: str) -> Tenant:
         {"tenants": [{"id": "a", "daily_budget": "lots"}]},
         {"tenants": [{"id": "a", "daily_budget": True}]},
         {"tenants": [{"id": "a", "refusal_message": ""}]},
+        {"tenants": [{"id": "a", "link_hosts": ["https://x.example"]}]},
+        {"tenants": [{"id": "a", "link_hosts": ["bad host"]}]},
+        {"tenants": [{"id": "a", "link_hosts": "x.example"}]},
         {"tenants": [{"id": "a", "name": "x\u0007"}]},
         {"tenants": [{"id": "a", "api_key_sha256": ["0" * 64]}, {"id": "b", "api_key_sha256": ["0" * 64]}]},
     ],

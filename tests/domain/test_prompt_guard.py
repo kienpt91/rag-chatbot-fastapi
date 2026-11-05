@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from rag_chatbot.domain.guard import MAX_ANSWER_CHARS, GuardResult, check_answer, leaks_system_prompt, urls_in
+from rag_chatbot.domain.guard import MAX_ANSWER_CHARS, GuardResult, check_answer, host_of, leaks_system_prompt, urls_in
 from rag_chatbot.domain.model import ChatTurn
 from rag_chatbot.domain.prompt import NO_ANSWER, Prompt, build_prompt, neutralise, system_prompt
 from support.builders import retrieval, retrieved
@@ -114,8 +114,8 @@ ALIASES = {"s1": "ck_0", "s2": "ck_1"}
 RULES = system_prompt("Maple Bakery", CANARY)
 
 
-def check(raw: str, urls: tuple[str, ...] = ("https://acme.example/hours",)) -> GuardResult:
-    return check_answer(raw, aliases=ALIASES, system_prompt=RULES, canary=CANARY, allowed_urls=urls)
+def check(raw: str, hosts: tuple[str, ...] = ("www.acme.example",)) -> GuardResult:
+    return check_answer(raw, aliases=ALIASES, system_prompt=RULES, canary=CANARY, allowed_hosts=hosts)
 
 
 def test_a_cited_answer_passes_and_loses_its_markers() -> None:
@@ -169,16 +169,47 @@ def test_ordinary_answers_do_not_look_like_leaks() -> None:
     assert not leaks_system_prompt("Only the sources matter here", RULES, CANARY)
 
 
-def test_an_address_that_is_not_in_the_sources_fails() -> None:
+def test_an_address_on_a_host_the_site_does_not_own_fails() -> None:
     assert check("Book at https://evil.example/pay?q=secret [s1]").reason == "unverified_link"
     assert check("![x](https://evil.example/p.png?c=abc) [s1]").reason == "unverified_link"
     assert check("click javascript:alert(1) [s1]").reason == "unverified_link"
     assert check("open data:text/html;base64,AAAA [s1]").reason == "unverified_link"
+    assert check("see ftp://www.acme.example/file [s1]").ok  # the scheme is not what is checked, the host is
 
 
-def test_an_address_that_is_in_the_sources_is_fine_even_with_other_case_and_punctuation() -> None:
-    assert check("See https://ACME.example/hours. [s1]").ok
-    assert check("See (https://acme.example/hours) [s1]").ok
+def test_an_address_the_site_itself_lists_on_a_foreign_host_still_fails() -> None:
+    # a poisoned review that advertises a phishing address must not be passed on, even though a page contains it
+    assert check("Claim your gift at https://evil.example/free-gift [s1]").reason == "unverified_link"
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "See https://WWW.ACME.example/hours. [s1]",
+        "See (https://www.acme.example:8443/hours) [s1]",
+        "See https://www.acme.example./hours [s1]",
+    ],
+)
+def test_addresses_on_the_sites_own_host_pass_whatever_their_case_port_or_punctuation(answer: str) -> None:
+    assert check(answer).ok
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "See https://www.acme.example@evil.example/x [s1]",  # the host is what follows the @
+        "See https://shop.acme.example/x [s1]",  # a subdomain is another host
+        "See https://acme.example/x [s1]",
+        "See https://www.acme.example.evil.test/x [s1]",
+        "See https://evil.test/www.acme.example [s1]",
+    ],
+)
+def test_lookalike_hosts_fail(answer: str) -> None:
+    assert check(answer).reason == "unverified_link"
+
+
+def test_declared_link_hosts_may_be_linked() -> None:
+    assert check("Book on https://book.partner.example/x [s1]", hosts=("www.acme.example", "book.partner.example")).ok
 
 
 def test_a_very_long_answer_is_cut() -> None:
@@ -189,6 +220,12 @@ def test_a_very_long_answer_is_cut() -> None:
 def test_control_characters_are_removed_from_the_answer() -> None:
     result = check("We\u202e open\u200b at\x00 nine [s1]")
     assert result.ok and result.text == "We open at nine"
+
+
+def test_host_of_reads_the_real_host() -> None:
+    assert host_of("https://User:pw@Example.COM.:8080/p?q#f") == "example.com"
+    assert host_of("not a url") is None
+    assert host_of("https://[bad") is None
 
 
 def test_urls_in_finds_addresses_and_ignores_trailing_punctuation() -> None:

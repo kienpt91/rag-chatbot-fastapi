@@ -7,8 +7,10 @@ refusal and never shown, stored or cited.
 * every statement must carry a citation, and every cited id must be one of the sources this request was given
   (a model cannot cite a document it was not shown, nor invent one);
 * the answer must not contain the system prompt, the internal marker or a long run of its words;
-* the answer must not contain a web address that is not in the sources the request was given (an exfiltration
-  channel: a link or an image whose address carries the conversation) or a `javascript:`/`data:` address;
+* the answer may link only to the site's own hosts (the tenant's origins and its declared link hosts, plus the hosts
+  of the pages it cites), even when a page of the site lists some other address: a link or an image whose address
+  carries the conversation is an exfiltration channel, and a poisoned review that advertises a phishing address must
+  not be passed on. `javascript:` and `data:` addresses never pass;
 * the answer is plain text: markers are removed, control characters stripped, length bounded.
 
 What it cannot see: a wrong or misleading statement that is correctly cited, and a leak in a paraphrase or another
@@ -20,6 +22,7 @@ from __future__ import annotations
 import re
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from rag_chatbot.domain.prompt import NO_ANSWER
 from rag_chatbot.domain.text import fold, strip_invisible, words
@@ -61,16 +64,24 @@ def urls_in(text: str) -> set[str]:
     return {_strip_url(match.group(0)).casefold() for match in _URL.finditer(text)}
 
 
+def host_of(url: str) -> str | None:
+    """The lower-case host of an address, without a trailing dot; None when it has none or cannot be read."""
+    try:
+        host = urlsplit(url).hostname
+    except ValueError:
+        return None
+    return host.rstrip(".").casefold() if host else None
+
+
 def check_answer(
     raw: str,
     *,
     aliases: Mapping[str, str],
     system_prompt: str,
     canary: str,
-    allowed_urls: Collection[str],
+    allowed_hosts: Collection[str],
 ) -> GuardResult:
-    """`aliases` maps `s1` to the chunk id it stands for; `allowed_urls` are the addresses that appear in the
-    sources (and their pages' own addresses)."""
+    """`aliases` maps `s1` to the chunk id it stands for; `allowed_hosts` are the hosts the answer may link to."""
     text = strip_invisible(raw).strip()
     if not text:
         return GuardResult(False, reason="empty")
@@ -80,8 +91,8 @@ def check_answer(
         text = text[:MAX_ANSWER_CHARS].rstrip()
     if leaks_system_prompt(text, system_prompt, canary):
         return GuardResult(False, reason="system_prompt_leak")
-    allowed = {u.casefold() for u in allowed_urls}
-    if _BAD_SCHEME.search(text) or not urls_in(text) <= allowed:
+    allowed = {h.rstrip(".").casefold() for h in allowed_hosts}
+    if _BAD_SCHEME.search(text) or any(host_of(url) not in allowed for url in urls_in(text)):
         return GuardResult(False, reason="unverified_link")
     cited: dict[str, None] = {}
     for group in _CITE_GROUP.finditer(text):
