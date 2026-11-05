@@ -11,6 +11,7 @@ import re
 import string
 from dataclasses import dataclass
 
+from rag_chatbot.domain.htmlextract import strip_hidden_inline_html
 from rag_chatbot.domain.textnorm import (
     BREAK,
     ExtractedPage,
@@ -543,6 +544,7 @@ def extract_markdown(text: str) -> ExtractedPage:
     """Markdown source to plain text: syntax removed, words kept; comments and script/style elements dropped;
     code blocks verbatim; tables as one line per row. Title from front matter or the first level-1 heading."""
     bounded, cut = bound_input(text)
+    bounded = strip_hidden_inline_html(bounded)
     lines = clean_chars(normalize_newlines(bounded)).split("\n")
     meta, start = _front_matter(lines)
     converter = _Markdown()

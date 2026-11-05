@@ -86,9 +86,9 @@ def test_pre_made_of_divs_puts_each_on_its_own_line() -> None:
     assert text_of("<pre><div>a</div><div>b</div></pre>") == "a\nb"
 
 
-def test_img_alt_text_is_inline_text_and_a_missing_alt_is_dropped() -> None:
+def test_img_alt_text_is_never_indexed_because_an_image_can_carry_any_text_unseen() -> None:
     html = '<p>See <img src=a alt="the map"> here <img src=b alt=""> and <img src=c></p>'
-    assert text_of(html) == "See the map here and"
+    assert text_of(html) == "See here and"
 
 
 def test_link_text_is_kept_and_the_url_is_not_emitted() -> None:
@@ -158,10 +158,10 @@ def test_invisible_and_control_characters_are_removed_from_text(char: str) -> No
 
 
 @pytest.mark.parametrize("char", DANGEROUS_CHARACTERS)
-def test_invisible_and_control_characters_are_removed_from_title_and_alt_text(char: str) -> None:
-    result = extract_html(f'<title>a{char}b</title><p>c<img alt="d{char}e">f</p>')
+def test_invisible_and_control_characters_are_removed_from_the_title(char: str) -> None:
+    result = extract_html(f"<title>a{char}b</title><p>c{char}d</p>")
     assert result.title == "ab"
-    assert result.text == "c de f"
+    assert result.text == "cd"
 
 
 @pytest.mark.parametrize("char", ["\u2028", "\u2029", "\x0b", "\x0c", "\x85", "\u00a0", "\u3000"])

@@ -58,6 +58,8 @@ _VOID = frozenset(
 # Elements whose content is not markup: it is skipped up to the matching end tag (title is read first).
 _RAW_TEXT = frozenset({"iframe", "noembed", "noframes", "script", "style", "textarea", "title", "xmp"})
 _RAW_END = {name: re.compile("</" + name + "(?=[ \t\n\f\r/>])", re.IGNORECASE) for name in _RAW_TEXT}
+# Script data escape states: `<!--` followed by `<script` makes the next `</script` close only the inner script.
+_SCRIPT_TOKENS = re.compile(r"<!--|-->|<script(?=[ \t\n\f\r/>])|</script(?=[ \t\n\f\r/>])", re.IGNORECASE)
 _HEADINGS = frozenset({"h1", "h2", "h3", "h4", "h5", "h6"})
 _LISTS = frozenset({"ol", "ul"})
 _CELLS = frozenset({"td", "th"})
@@ -306,6 +308,38 @@ def _clip_is_empty(value: str) -> bool:
     return rest.startswith("0") and rest[1:2] not in tuple("0123456789.")
 
 
+def _script_end(html: str, start: int) -> re.Match[str] | None:
+    """The `</script` that ends a script element starting at `start`, as a browser's tokenizer finds it: inside
+    `<!--` ... `<script`, a first end tag only closes the inner script. None when the script never ends."""
+    escaped = False
+    inner = 0
+    for token in _SCRIPT_TOKENS.finditer(html, start):
+        text = token.group(0)
+        if text == "<!--":
+            escaped = True
+        elif text == "-->":
+            escaped = False
+            inner = 0
+        elif text.lower() == "<script":
+            inner += 1 if escaped else 0
+        elif inner:
+            inner -= 1
+        else:
+            return token
+    return None
+
+
+_TINY_PX = re.compile(r"^(-?\d*\.?\d+)px$")
+_SCALE_ZERO = re.compile(r"scale(?:x|y|3d)?\(0(?:\.0*)?[,)]")
+_NO_COLOUR = frozenset({"", "inherit", "initial", "unset", "currentcolor", "transparent"})
+_POSITIONED = frozenset({"absolute", "fixed", "relative", "sticky"})
+
+
+def _is_tiny(value: str | None) -> bool:
+    match = _TINY_PX.match(value or "")
+    return match is not None and float(match.group(1)) <= 1.0
+
+
 def _style_hides(style: str) -> bool:
     declarations: dict[str, str] = {}
     for declaration in clean_chars(_strip_css_comments(style)).lower().split(";"):
@@ -322,9 +356,18 @@ def _style_hides(style: str) -> bool:
         or _is_zero(get("opacity"))
         or (get("overflow") == "hidden" and (_is_zero(get("height")) or _is_zero(get("max-height"))))
         or _is_far_negative(get("text-indent"))
-        or (get("position") == "absolute" and (_is_far_negative(get("left")) or _is_far_negative(get("top"))))
+        or (get("position") in _POSITIONED and (_is_far_negative(get("left")) or _is_far_negative(get("top"))))
         or _clip_is_empty(get("clip", ""))
         or get("color") == "transparent"
+        or _is_tiny(get("font-size"))
+        or (get("overflow") == "hidden" and (_is_zero(get("width")) or _is_zero(get("max-width"))))
+        or _is_far_negative(get("margin-left"))
+        or _is_far_negative(get("margin-top"))
+        or _SCALE_ZERO.search(get("transform", "").replace(" ", "")) is not None
+        or get("clip-path", "")
+        .replace(" ", "")
+        .startswith(("inset(100%", "inset(50%", "circle(0%", "circle(0px", "circle(0)"))
+        or (get("color", "") not in _NO_COLOUR and get("color") in (get("background-color"), get("background")))
     )
 
 
@@ -702,7 +745,7 @@ class _Extractor:
         return self._after(html, ">", pos, size)
 
     def _raw_text(self, name: str, html: str, start: int, size: int) -> int:
-        match = _RAW_END[name].search(html, start)
+        match = _script_end(html, start) if name == "script" else _RAW_END[name].search(html, start)
         if match is None:
             if name == "title":
                 # An unterminated title is a typo, not a reason to read the rest of the page as its text.
@@ -745,13 +788,7 @@ class _Extractor:
         elif name == "hr":
             for sink in self._active:
                 sink.boundary()
-        elif name == "img":
-            alt = attrs.get("alt")
-            if alt and not self._drops(name, attrs):
-                text = clean_chars(decode_entities(alt))
-                if text.strip():
-                    for sink in self._active:
-                        sink.text(" " + text + " ")
+        # an image's alt text is never indexed: a 1x1 image can carry any text, and a visitor does not read it
 
     def _read_meta(self, attrs: dict[str, str]) -> None:
         if (
@@ -952,3 +989,59 @@ def extract_html(html: str, *, base_url: str = "") -> ExtractedPage:
         noindex=extractor.noindex,
         truncated=cut or sink.writer.truncated,
     )
+
+
+# --- inline HTML in Markdown --------------------------------------------------------------------------------------
+
+_OPEN_TAG = re.compile(r"<([A-Za-z][A-Za-z0-9-]{0,31})((?:\s[^<>]{0,2000})?)(/?)>")
+_ATTRIBUTE = re.compile(r"""([^\s=/"'<>]+)(?:\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+))?""")
+_VOID = frozenset(
+    {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+)
+
+
+def _tag_hides(name: str, attribute_text: str) -> bool:
+    if name.lower() == "template":
+        return True
+    attrs = {
+        m.group(1).lower(): decode_entities((m.group(2) or "").strip("\"'"))
+        for m in _ATTRIBUTE.finditer(attribute_text)
+    }
+    return (
+        "hidden" in attrs
+        or attrs.get("aria-hidden", "").strip().lower() == "true"
+        or ("style" in attrs and _style_hides(attrs["style"]))
+    )
+
+
+def strip_hidden_inline_html(text: str) -> str:
+    """Remove the elements a browser would not show (`hidden`, `aria-hidden="true"`, a hiding `style`, `template`)
+    from Markdown that contains raw HTML, with everything inside them; an element that is never closed hides the rest
+    of the text, as in a browser. Void elements (an `<img hidden>`) have no content and only lose the tag. Linear in
+    the size of the text."""
+    out: list[str] = []
+    pos = 0
+    while True:
+        found = next(
+            (m for m in _OPEN_TAG.finditer(text, pos) if _tag_hides(m.group(1), m.group(2))),
+            None,
+        )
+        if found is None:
+            out.append(text[pos:])
+            return "".join(out)
+        out.append(text[pos : found.start()])
+        name = found.group(1)
+        if name.lower() in _VOID or found.group(3):
+            pos = found.end()
+            continue
+        closer = re.compile(rf"<(/?){re.escape(name)}(?![A-Za-z0-9-])[^<>]{{0,2000}}?(/?)>", re.IGNORECASE)
+        depth = 1
+        pos = len(text)
+        for tag in closer.finditer(text, found.end()):
+            if tag.group(1):
+                depth -= 1
+                if depth == 0:
+                    pos = tag.end()
+                    break
+            elif not tag.group(2):
+                depth += 1
