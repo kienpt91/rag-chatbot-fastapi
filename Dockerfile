@@ -1,11 +1,11 @@
 # The service image: non-root, base image pinned by digest (python 3.13.17-slim-trixie, index pushed 2026-10-24),
 # dependencies installed from requirements.txt with --require-hashes, nothing writable at run time.
-FROM python@sha256:d98cc29d3266e535dd9da1099688d9cb3ca4753813571e071763d17725460962 AS build
+FROM python@sha256:f17ec845ebdd4f3347431579e1c22eaeec82913f039f2a54b937c7ff870bacdb AS build
 RUN python -m venv /opt/venv
 COPY requirements.txt /tmp/requirements.txt
 RUN /opt/venv/bin/pip install --no-cache-dir --disable-pip-version-check --no-deps --require-hashes -r /tmp/requirements.txt
 
-FROM python@sha256:d98cc29d3266e535dd9da1099688d9cb3ca4753813571e071763d17725460962
+FROM python@sha256:f17ec845ebdd4f3347431579e1c22eaeec82913f039f2a54b937c7ff870bacdb
 RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin app
 COPY --from=build /opt/venv /opt/venv
 COPY src /app/src
