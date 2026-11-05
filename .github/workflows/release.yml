@@ -1,0 +1,89 @@
+name: release
+
+# A push of a tag v* verifies the code, builds the sdist and the wheel in the pinned container, writes SHA256SUMS,
+# attests where the files came from and creates the GitHub release. workflow_dispatch only builds and keeps the files
+# as a workflow artifact; it never creates a release. Nothing is published to a package registry (PyPI included).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: The tag must name the pyproject version and be in the history of the default branch
+        if: github.event_name == 'push'
+        env:
+          TAG: ${{ github.ref_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: sh scripts/check-release-tag.sh "$TAG"
+      - name: Release scripts
+        run: sh scripts/test-release.sh
+      - name: Every pinned development file is at least seven days old
+        run: PY_NET=bridge sh scripts/py.sh "python scripts/check-dep-age.py"
+      - run: sh scripts/py.sh install
+      - name: Format, lint, types, tests and coverage thresholds
+        run: sh scripts/verify.sh
+
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: sh scripts/py.sh install
+      - name: Build the sdist and the wheel in the pinned container
+        run: sh scripts/build-dist.sh
+      - name: Checksum
+        run: |
+          mkdir release
+          cp out/dist/* release/
+          cd release
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - name: Attest the build provenance of the files
+        if: github.event_name == 'push'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: release/*
+      - name: Create the GitHub release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          sh scripts/release-notes.sh "$TAG" > "$RUNNER_TEMP/release-notes.txt"
+          flags=""
+          case "$TAG" in *-*) flags="--prerelease" ;; esac
+          gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/release-notes.txt" $flags release/*
+      - name: Keep the build (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-build
+          path: release/*
+          if-no-files-found: error
+          retention-days: 7

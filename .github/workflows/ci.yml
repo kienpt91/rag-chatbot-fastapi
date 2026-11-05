@@ -1,0 +1,98 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    env:
+      PY_VERSION: ${{ matrix.python }}
+    steps:
+      # Actions are pinned to full commit SHAs. Python and PostgreSQL come from the official images pinned by digest
+      # inside scripts/py.sh: the container the project is developed in.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned, hash-checked packages
+        run: sh scripts/py.sh install
+      # format check, lint, strict types, the whole suite against a real PostgreSQL + pgvector with the coverage
+      # thresholds (domain 95, application 90, overall 85), then the widget tests under Node
+      - name: Verify
+        run: sh scripts/verify.sh
+
+  evaluation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: sh scripts/py.sh install
+      # the evaluation set against the DETERMINISTIC FAKE provider: no hosted model is called
+      - name: Evaluate (fake provider)
+        run: sh scripts/eval.sh
+
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the service image (digest-pinned base, hashed dependencies)
+        run: docker build -t rag-chatbot-fastapi:ci .
+      - name: The image runs as a non-root user
+        run: test "$(docker run --rm --entrypoint id rag-chatbot-fastapi:ci -u)" != 0
+
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Every pinned file is at least seven days old and each lock matches its input
+        run: PY_NET=bridge sh scripts/py.sh 'python scripts/check-dep-age.py'
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: sh scripts/py.sh install
+      - name: Build the sdist and the wheel
+        run: sh scripts/build-dist.sh
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: sh scripts/secret-scan.sh --tree
+      - run: sh scripts/secret-scan.sh --history
+
+  release-scripts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: sh scripts/test-release.sh
