@@ -24,7 +24,7 @@ from rag_chatbot.domain.redaction import ALL_KINDS, redact
 
 request_id_var: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
 
-_STANDARD = frozenset(logging.makeLogRecord({}).__dict__) | {"message", "asctime", "taskName"}
+_STANDARD = frozenset(vars(logging.makeLogRecord({}))) | {"message", "asctime", "taskName"}
 _MAX_VALUE_CHARS = 500
 
 
@@ -53,7 +53,7 @@ class JsonFormatter(logging.Formatter):
             "msg": self._clean(record.getMessage()),
             "request_id": request_id_var.get(),
         }
-        for key, value in record.__dict__.items():
+        for key, value in vars(record).items():
             if key not in _STANDARD and not key.startswith("_"):
                 entry[key] = self._clean(value)
         if record.exc_info and record.exc_info[0] is not None:

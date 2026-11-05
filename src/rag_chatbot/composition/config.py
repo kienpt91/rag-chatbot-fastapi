@@ -52,21 +52,21 @@ class Settings:
 
     def require(self, *names: str) -> None:
         """Raises `ConfigurationError` naming the environment variables that are missing for what is about to run."""
-        env_names = {
-            "database_url": "RAG_DATABASE_URL",
-            "tenants_file": "RAG_TENANTS_FILE",
-            "price_table_file": "RAG_PRICE_TABLE_FILE",
-            "provider": "RAG_PROVIDER",
+        needed: dict[str, tuple[str, object]] = {
+            "database_url": ("RAG_DATABASE_URL", self.database_url),
+            "tenants_file": ("RAG_TENANTS_FILE", self.tenants_file),
+            "price_table_file": ("RAG_PRICE_TABLE_FILE", self.price_table_file),
+            "provider": ("RAG_PROVIDER", self.provider),
         }
-        missing = [env_names[n] for n in names if not getattr(self, n)]
+        missing = [needed[n][0] for n in names if not needed[n][1]]
         if self.provider == "http" and "provider" in names:
-            for attr, env in (
-                ("api_base_url", "RAG_API_BASE_URL"),
-                ("api_key", "RAG_API_KEY"),
-                ("chat_model", "RAG_CHAT_MODEL"),
-                ("embedding_model", "RAG_EMBEDDING_MODEL"),
+            for env, value in (
+                ("RAG_API_BASE_URL", self.api_base_url),
+                ("RAG_API_KEY", self.api_key),
+                ("RAG_CHAT_MODEL", self.chat_model),
+                ("RAG_EMBEDDING_MODEL", self.embedding_model),
             ):
-                if not getattr(self, attr):
+                if not value:
                     missing.append(env)
         if missing:
             raise ConfigurationError("missing configuration: " + ", ".join(missing))
