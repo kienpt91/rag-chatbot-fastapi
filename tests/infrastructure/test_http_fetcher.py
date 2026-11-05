@@ -641,3 +641,22 @@ def test_a_user_agent_that_could_break_the_request_is_a_configuration_error(agen
 )
 def test_content_type_parsing(header: str, expected: tuple[str, str]) -> None:
     assert parse_content_type(header) == expected
+
+
+def test_closing_the_connection_object_does_not_close_the_socket_the_body_is_still_read_from() -> None:
+    # http.client closes its socket right after the headers of a `Connection: close` answer; the body comes later
+    import socket
+
+    from rag_chatbot.infrastructure.sources.http_fetcher import _Deadline, _DeadlineSocket
+
+    left, right = socket.socketpair()
+    try:
+        wrapper = _DeadlineSocket(left, _Deadline(lambda: 0.0, 10.0))
+        wrapper.close()
+        assert left.fileno() != -1
+        right.sendall(b"late body")
+        reader = wrapper.makefile()
+        assert reader.read1(9) == b"late body"
+    finally:
+        left.close()
+        right.close()

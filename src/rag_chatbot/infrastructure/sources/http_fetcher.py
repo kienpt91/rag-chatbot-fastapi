@@ -130,7 +130,9 @@ class HttpFetcher:
         except TimeoutError as exc:
             raise SourceError("timeout") from exc
         except OSError as exc:
-            raise SourceError(f"network failure ({type(exc).__name__})") from exc
+            raise SourceError(
+                f"network failure ({type(exc).__name__}{f', errno {exc.errno}' if exc.errno else ''})"
+            ) from exc
         except http.client.HTTPException as exc:
             raise SourceError(f"protocol failure ({type(exc).__name__})") from exc
         except ValueError as exc:  # includes UnicodeError and header validation errors
@@ -270,7 +272,10 @@ class _DeadlineSocket:
         return io.BufferedReader(_DeadlineReader(self._sock, self._deadline), _CHUNK_BYTES)
 
     def close(self) -> None:
-        self._sock.close()
+        # http.client closes its socket as soon as it has read the headers of an answer that says `Connection: close`,
+        # before the body has been read. The body is read from this very socket, so closing it here made the read fail
+        # (EBADF) whenever the body had not arrived together with the headers. The owner, `_fetch`, closes the socket.
+        return
 
 
 def _result(url: str, response: http.client.HTTPResponse, max_bytes: int) -> FetchResult:
