@@ -1,0 +1,11 @@
+# The settings the evaluation runs with against the deterministic fake provider (see docs/evaluation.md).
+# The fake embeds bags of words, so its similarities are low: the retrieval threshold is low too, and the pages of the
+# sample site are cut into small chunks so that one fact does not drown in its page. A real provider needs its own
+# numbers: tune them with this same dataset (docs/adapting.md).
+RAG_PROVIDER=fake
+RAG_FAKE_GULLIBLE=true
+RAG_CONFIDENCE_THRESHOLD=0.10
+RAG_CHUNK_TARGET_TOKENS=60
+RAG_CHUNK_MAX_TOKENS=100
+RAG_CHUNK_OVERLAP_TOKENS=10
+RAG_CHUNK_MIN_TOKENS=15

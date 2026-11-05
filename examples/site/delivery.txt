@@ -1,0 +1,15 @@
+Delivery
+
+Delivery area
+We deliver within 5 kilometres of the shop.
+Addresses further than 5 kilometres from the shop are not delivered.
+
+Delivery fee
+The delivery fee is 5 dollars.
+Delivery is free for orders above 40 dollars.
+The minimum order for delivery is 15 dollars.
+
+Delivery days and times
+Orders placed before 10:00 are delivered the same day on weekdays.
+There is no delivery on Sundays.
+To place an order, e-mail us using the address on the contact page.
