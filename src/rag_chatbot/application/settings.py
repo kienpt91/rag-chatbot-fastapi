@@ -21,6 +21,7 @@ class ChatSettings:
     candidates_per_search: int = 12
     context_chunks: int = 5
     context_chars: int = 6000
+    context_relative_cutoff: float = 0.5  # chunks less than half as similar as the best one are not given to the model
     history_turns: int = 6
     history_token_budget: int = 800
     max_output_tokens: int = 400
@@ -38,6 +39,8 @@ class ChatSettings:
             raise ConfigurationError("confidence_threshold must be between 0 and 1")
         if min(self.candidates_per_search, self.context_chunks, self.history_turns, self.max_output_tokens) < 1:
             raise ConfigurationError("limits must be at least 1")
+        if not 0.0 <= self.context_relative_cutoff <= 1.0:
+            raise ConfigurationError("context_relative_cutoff must be between 0 and 1")
         if len(self.canary) < 12:
             raise ConfigurationError("the canary must be at least 12 characters")
 

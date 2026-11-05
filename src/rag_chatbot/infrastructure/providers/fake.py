@@ -32,11 +32,13 @@ _SENTENCES = re.compile(r"(?<=[.!?])\s+|\n+")
 _REVEAL = re.compile(
     r"\b(?:reveal|print|repeat|show|output)\b[^.\n]{0,40}\b(?:system prompt|instructions|rules)\b", re.IGNORECASE
 )
+_MIN_COVERAGE = 0.6
+_PLACEHOLDER = re.compile(r"\[(?:email|phone|card|secret)\]")  # what redaction leaves where personal data was
 _REPLY = re.compile(r"\bREPLY:\s*(.+)", re.IGNORECASE)
 
 
 def _stem(word: str) -> str:
-    return word[:5]
+    return word[:4]
 
 
 class FakeEmbeddingProvider:
@@ -93,22 +95,25 @@ class FakeChatProvider:
     def _answer(self, system: str, prompt: str) -> str:
         sources = [(m.group(1), m.group(3)) for m in _SOURCE.finditer(prompt)]
         question_match = _QUESTION.search(prompt)
-        question = question_match.group(2) if question_match else ""
+        question = _PLACEHOLDER.sub(" ", question_match.group(2)) if question_match else ""
         if self.gullible:
             obeyed = self._obey(system, sources, question)
             if obeyed is not None:
                 return obeyed
         wanted = {_stem(t) for t in search_terms(question)}
-        best: tuple[float, str, str] | None = None
+        best: tuple[int, str, str] | None = None
         for alias, body in sources:
             for raw in _SENTENCES.split(body):
                 sentence = raw.strip()
                 if not sentence or sentence.startswith("#"):
                     continue
                 overlap = len(wanted & {_stem(w) for w in words(sentence)})
-                if overlap and (best is None or overlap > best[0]):
+                # the most overlap wins, and of equal ones the longest sentence (a title line matches as well as the
+                # sentence that answers, but says less)
+                if overlap and (best is None or (overlap, len(sentence)) > (best[0], len(best[2]))):
                     best = (overlap, alias, sentence)
-        if best is None:
+        # like a model that says "I don't know": most of what was asked about must be in the sentence it quotes
+        if best is None or best[0] < min(2, len(wanted)) or best[0] / len(wanted) < _MIN_COVERAGE:
             return NO_ANSWER
         _, alias, sentence = best
         return f"{sentence} [{alias}]"

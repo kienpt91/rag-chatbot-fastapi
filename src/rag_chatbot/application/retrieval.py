@@ -49,5 +49,6 @@ class Retriever:
             fuse(vector_hits, keyword_hits),
             max_chunks=self._settings.context_chunks,
             max_chars=self._settings.context_chars,
+            relative_cutoff=self._settings.context_relative_cutoff,
         )
         return RetrievalOutcome(retrieval, embedded.usage, embedded.model)

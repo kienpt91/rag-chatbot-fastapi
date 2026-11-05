@@ -11,7 +11,8 @@ refusal and never shown, stored or cited.
   of the pages it cites), even when a page of the site lists some other address: a link or an image whose address
   carries the conversation is an exfiltration channel, and a poisoned review that advertises a phishing address must
   not be passed on. `javascript:` and `data:` addresses never pass;
-* the answer is plain text: markers are removed, control characters stripped, length bounded.
+* the answer is plain text: markup tags are removed (a page may quote `<script>`; an integration that forgets to
+  escape the answer must not be handed it), citation markers are removed, control characters stripped, length bounded.
 
 What it cannot see: a wrong or misleading statement that is correctly cited, and a leak in a paraphrase or another
 language. Those are the evaluation set's job (see eval/).
@@ -34,6 +35,7 @@ _CITE_GROUP = re.compile(r"\[\s*(s\d{1,3}(?:\s*[,;]\s*s\d{1,3})*)\s*\]", re.IGNO
 _CITE_ID = re.compile(r"s\d{1,3}", re.IGNORECASE)
 _URL = re.compile(r"(?:https?|ftp)://[^\s<>\"'`)\]]{1,2000}", re.IGNORECASE)
 _BAD_SCHEME = re.compile(r"\b(?:javascript|data|vbscript|file)\s*:", re.IGNORECASE)
+_TAG = re.compile(r"<!--.{0,2000}?-->|</?[A-Za-z!?][^<>\n]{0,300}>", re.DOTALL)
 _NO_ANSWER = re.compile(rf"^\W*{NO_ANSWER}\W*$", re.IGNORECASE)
 
 
@@ -54,6 +56,16 @@ def leaks_system_prompt(answer: str, system_prompt: str, canary: str) -> bool:
     if canary and canary.casefold() in fold(answer):
         return True
     return bool(_shingles(answer, SHINGLE_WORDS) & _shingles(system_prompt, SHINGLE_WORDS))
+
+
+def strip_markup(text: str) -> str:
+    """Remove HTML tags and comments, repeatedly, so that removing one cannot assemble another (`<scr<b>ipt>`)."""
+    for _ in range(5):
+        stripped = _TAG.sub("", text)
+        if stripped == text:
+            break
+        text = stripped
+    return text
 
 
 def _strip_url(url: str) -> str:
@@ -87,6 +99,7 @@ def check_answer(
         return GuardResult(False, reason="empty")
     if _NO_ANSWER.match(text):
         return GuardResult(False, reason="no_answer")
+    text = strip_markup(text).strip()
     if len(text) > MAX_ANSWER_CHARS:
         text = text[:MAX_ANSWER_CHARS].rstrip()
     if leaks_system_prompt(text, system_prompt, canary):

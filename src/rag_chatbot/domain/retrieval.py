@@ -52,14 +52,23 @@ def fuse(
     return fused
 
 
-def select_context(fused: Sequence[RetrievedChunk], *, max_chunks: int, max_chars: int) -> list[RetrievedChunk]:
+def select_context(
+    fused: Sequence[RetrievedChunk], *, max_chunks: int, max_chars: int, relative_cutoff: float = 0.0
+) -> list[RetrievedChunk]:
     """The best chunks that fit the context budget. The best chunk is always kept (truncated by the prompt builder
-    if it alone is over budget); later ones are skipped when they would pass the budget."""
+    if it alone is over budget); later ones are skipped when they would pass the budget.
+
+    `relative_cutoff` drops chunks that are much less similar to the question than the most similar one
+    (similarity below `cutoff x best`): they add cost, and they add risk, because every chunk in the context is text
+    somebody wrote on a website. The best chunk is judged by similarity, not by its rank in the fusion."""
+    best_similarity = max((c.similarity for c in fused), default=0.0)
     chosen: list[RetrievedChunk] = []
     used = 0
     for item in fused:
         if len(chosen) >= max_chunks:
             break
+        if item.similarity < relative_cutoff * best_similarity:
+            continue
         size = len(item.chunk.text)
         if chosen and used + size > max_chars:
             continue
@@ -72,6 +81,8 @@ def confidence_of(chosen: Sequence[RetrievedChunk]) -> float:
     return max((c.similarity for c in chosen), default=0.0)
 
 
-def build_retrieval(fused: Sequence[RetrievedChunk], *, max_chunks: int, max_chars: int) -> Retrieval:
-    chosen = select_context(fused, max_chunks=max_chunks, max_chars=max_chars)
+def build_retrieval(
+    fused: Sequence[RetrievedChunk], *, max_chunks: int, max_chars: int, relative_cutoff: float = 0.0
+) -> Retrieval:
+    chosen = select_context(fused, max_chunks=max_chunks, max_chars=max_chars, relative_cutoff=relative_cutoff)
     return Retrieval(chunks=tuple(chosen), confidence=confidence_of(chosen))

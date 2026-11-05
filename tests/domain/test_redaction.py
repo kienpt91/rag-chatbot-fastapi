@@ -77,7 +77,8 @@ def test_kinds_can_be_switched_off() -> None:
 
 def test_phones_off_still_redacts_cards() -> None:
     assert redact("4111111111111111", kinds={"cards"}).text == "[card]"
-    assert redact("4111111111111111", kinds={"phones"}).text == "4111111111111111"  # too long for a phone number
+    # without the card check a long digit run is still not kept: it is redacted as the nearest thing, a phone number
+    assert redact("4111111111111111", kinds={"phones"}).text == "[phone]"
 
 
 def test_redaction_is_idempotent() -> None:
@@ -101,3 +102,31 @@ def test_hostile_inputs_are_processed_without_blowing_up(hostile: str) -> None:
 
 def test_luhn() -> None:
     assert luhn_valid("4111111111111111") and not luhn_valid("4111111111111112")
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("+1 555 0177 4111 1111 1111 1111", "[phone] [card]"),
+        ("4111 1111 1111 1111 +84 912 345 678", "[card] [phone]"),
+        ("0912345678 4111111111111111", "[phone] [card]"),
+        ("555 0177 4111 1111 1111 1111 555 0188", "[phone] [card] [phone]"),
+        ("mail a@b.example 555 0177 then 4111-1111-1111-1111.", "mail [email] [phone] then [card]."),
+    ],
+)
+def test_numbers_written_one_after_the_other_are_each_found(text: str, expected: str) -> None:
+    assert redact(text).text == expected
+
+
+def test_a_digit_run_that_cannot_be_classified_is_still_redacted() -> None:
+    text = "ref " + " ".join(["1234"] * 8) + " end"  # 32 digits, no card inside
+    assert redact(text).text == "ref [phone] end"
+
+
+def test_short_digit_groups_beside_a_number_are_left_alone() -> None:
+    assert redact("room 12 call 555 0177").text == "room 12 call [phone]"
+
+
+def test_a_leading_plus_or_bracket_belongs_to_the_number() -> None:
+    assert redact("call +84 912 345 678.").text == "call [phone]."
+    assert redact("call (415) 555-2671 now").text == "call [phone] now"

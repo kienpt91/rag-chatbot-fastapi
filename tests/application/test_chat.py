@@ -261,7 +261,7 @@ def test_a_valid_answer_can_cite_two_sources_and_only_cited_ones_are_returned() 
 
 def test_personal_data_never_reaches_the_model_the_embedder_or_the_database() -> None:
     service = loaded()
-    message = "I am jane.doe@example.org, phone +1 555 0177, card 4111 1111 1111 1111. What is the delivery fee?"
+    message = "jane.doe@example.org +1 555 0177 4111 1111 1111 1111 What is the delivery fee?"
     reply = asyncio.run(service.ask(message))
     seen = " ".join(service.embedder.texts[-1:]) + " ".join(m.content for _, ms in service.chat.calls for m in ms)
     assert "jane.doe" not in seen and "555 0177" not in seen and "4111" not in seen

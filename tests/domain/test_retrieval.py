@@ -65,3 +65,29 @@ def test_a_keyword_only_hit_with_low_similarity_does_not_raise_confidence() -> N
 def test_build_retrieval_exposes_the_chunk_ids() -> None:
     result = build_retrieval(fuse([hit("a", 0.9), hit("b", 0.8)], []), max_chunks=1, max_chars=1000)
     assert result.chunk_ids == frozenset({"a"})
+
+
+def test_chunks_much_less_similar_than_the_best_are_left_out_of_the_context() -> None:
+    items = [retrieved("a", 0.80), retrieved("b", 0.45), retrieved("c", 0.39), retrieved("d", 0.10)]
+    kept = select_context(items, max_chunks=5, max_chars=10_000, relative_cutoff=0.5)
+    assert [c.chunk.chunk_id for c in kept] == ["a", "b"]  # 0.39 < 0.5 x 0.80 and 0.10 too
+    assert len(select_context(items, max_chunks=5, max_chars=10_000, relative_cutoff=0.0)) == 4
+
+
+def test_the_cutoff_is_relative_to_the_most_similar_chunk_not_to_the_first_by_fusion_rank() -> None:
+    items = [retrieved("keyword_only", 0.10), retrieved("best", 0.70), retrieved("close", 0.40)]
+    kept = select_context(items, max_chunks=5, max_chars=10_000, relative_cutoff=0.5)
+    assert [c.chunk.chunk_id for c in kept] == [
+        "best",
+        "close",
+    ]  # even the top of the fusion goes if it is a weak match
+    assert [c.chunk.chunk_id for c in select_context(items, max_chunks=5, max_chars=10_000, relative_cutoff=0.6)] == [
+        "best"
+    ]
+
+
+def test_build_retrieval_passes_the_cutoff_and_reports_the_confidence_of_what_was_kept() -> None:
+    result = build_retrieval(
+        fuse([hit("a", 0.9), hit("b", 0.2)], []), max_chunks=5, max_chars=1000, relative_cutoff=0.5
+    )
+    assert result.chunk_ids == frozenset({"a"}) and result.confidence == 0.9

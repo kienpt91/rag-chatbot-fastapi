@@ -217,6 +217,34 @@ def test_a_very_long_answer_is_cut() -> None:
     assert not result.ok or len(result.text) <= MAX_ANSWER_CHARS
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("<b>Bold</b> and <i>italic</i> text [s1]", "Bold and italic text"),
+        ("Customers write <script>alert(1)</script> in reviews [s1]", "Customers write alert(1) in reviews"),
+        ("Look <img src=x onerror=alert(1)> here [s1]", "Look here"),
+        ("A <!-- hidden --> note [s1]", "A note"),
+        ("<scr<b>ipt>alert(1)</scr</b>ipt> done [s1]", "alert(1) done"),
+        ("a < b and c > d [s1]", "a < b and c > d"),
+        ("price is 5 <10 dollars> [s1]", "price is 5 <10 dollars>"),
+    ],
+)
+def test_markup_is_removed_from_the_answer_but_comparisons_are_not(raw: str, expected: str) -> None:
+    result = check(raw)
+    assert (
+        result.ok
+        and result.text == expected
+        and "<script" not in result.text
+        and "onerror" not in result.text.replace("onerror=alert", "")
+    )
+
+
+def test_a_wall_of_angle_brackets_is_handled_in_bounded_time() -> None:
+    check("<" * 50_000 + " [s1]")
+    check("<a " * 20_000 + " [s1]")
+    check("<!--" * 20_000 + " [s1]")
+
+
 def test_control_characters_are_removed_from_the_answer() -> None:
     result = check("We\u202e open\u200b at\x00 nine [s1]")
     assert result.ok and result.text == "We open at nine"
