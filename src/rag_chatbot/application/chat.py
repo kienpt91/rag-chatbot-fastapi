@@ -35,7 +35,7 @@ from rag_chatbot.domain.errors import (
     SessionFullError,
     SessionNotFoundError,
 )
-from rag_chatbot.domain.guard import GuardResult, check_answer, host_of
+from rag_chatbot.domain.guard import GuardResult, check_answer, host_of, scrub
 from rag_chatbot.domain.history import trim_history
 from rag_chatbot.domain.model import (
     Answer,
@@ -121,7 +121,7 @@ class ChatService:
         return request.session_id, False
 
     def _citations(
-        self, guard: GuardResult, outcome: RetrievalOutcome, aliases: dict[str, str]
+        self, guard: GuardResult, outcome: RetrievalOutcome, aliases: dict[str, str], allowed_hosts: set[str]
     ) -> tuple[Citation, ...]:
         by_id = {c.chunk.chunk_id: c.chunk for c in outcome.retrieval.chunks}
         citations: list[Citation] = []
@@ -133,7 +133,7 @@ class ChatService:
                     document_id=chunk.document_id,
                     title=chunk.title,
                     url=chunk.url,
-                    snippet=truncate_at_boundary(" ".join(chunk.text.split()), SNIPPET_CHARS),
+                    snippet=truncate_at_boundary(scrub(" ".join(chunk.text.split()), allowed_hosts), SNIPPET_CHARS),
                 )
             )
         return tuple(citations)
@@ -288,7 +288,7 @@ class ChatService:
                 request, session_id, redacted, answer, usage=usage, embedding_tokens=embedding_tokens, cost=total,
                 started=started, outcome="refused" if reason == "no_answer" else "blocked",
             )  # fmt: skip
-        citations = self._citations(guard, outcome, aliases)
+        citations = self._citations(guard, outcome, aliases, allowed_hosts)
         answer = Answer(guard.text, grounded=True, citations=citations, confidence=outcome.retrieval.confidence)
         return await self._finish(
             request, session_id, redacted, answer, usage=usage, embedding_tokens=embedding_tokens, cost=total,

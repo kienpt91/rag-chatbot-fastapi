@@ -68,6 +68,20 @@ def strip_markup(text: str) -> str:
     return text
 
 
+def scrub(text: str, allowed_hosts: Collection[str]) -> str:
+    """Text taken from a page (a citation's snippet) made safe to hand on: markup removed, and every address on a host
+    the site does not own replaced by `[link removed]`. The same rule as for the answer, so that a poisoned page cannot
+    get its address through the side door of a quotation."""
+    allowed = {h.rstrip(".").casefold() for h in allowed_hosts}
+
+    def replace(match: re.Match[str]) -> str:
+        core = _strip_url(match.group(0))
+        tail = match.group(0)[len(core) :]
+        return (core if host_of(core) in allowed else "[link removed]") + tail
+
+    return _URL.sub(replace, strip_markup(text))
+
+
 def _strip_url(url: str) -> str:
     return url.rstrip(".,;:!?")
 

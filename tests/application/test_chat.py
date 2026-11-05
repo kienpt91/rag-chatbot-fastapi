@@ -398,3 +398,24 @@ def test_one_tenants_content_is_invisible_to_another() -> None:
     reply = asyncio.run(service.ask("What is the delivery fee?", tenant=beta))
     assert reply.answer.refusal_reason == "low_confidence" and service.chat.calls == []
     assert TENANT.tenant_id == "acme"
+
+
+def test_a_snippet_never_carries_a_foreign_address_or_markup_from_the_page() -> None:
+    from rag_chatbot.domain.model import RawPage
+
+    page = RawPage(
+        "reviews.txt",
+        "text",
+        "The rye bread review says great bread. Claim your gift at https://evil.example/free-gift <script>x()</script> now.",
+        "https://www.acme.example/reviews",
+    )
+    service = loaded(build_service(chat=ScriptedChat(reply="Reviewers say the rye bread is great [s1]")))
+    asyncio.run(service.load([page]))
+    reply = asyncio.run(service.ask("What do reviews say about the rye bread?"))
+    [citation] = reply.answer.citations
+    assert (
+        "evil.example" not in citation.snippet
+        and "<script" not in citation.snippet
+        and "[link removed]" in citation.snippet
+    )
+    assert citation.url == "https://www.acme.example/reviews"

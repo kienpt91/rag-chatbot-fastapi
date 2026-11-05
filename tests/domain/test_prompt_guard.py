@@ -2,7 +2,15 @@ from __future__ import annotations
 
 import pytest
 
-from rag_chatbot.domain.guard import MAX_ANSWER_CHARS, GuardResult, check_answer, host_of, leaks_system_prompt, urls_in
+from rag_chatbot.domain.guard import (
+    MAX_ANSWER_CHARS,
+    GuardResult,
+    check_answer,
+    host_of,
+    leaks_system_prompt,
+    scrub,
+    urls_in,
+)
 from rag_chatbot.domain.model import ChatTurn
 from rag_chatbot.domain.prompt import NO_ANSWER, Prompt, build_prompt, neutralise, system_prompt
 from support.builders import retrieval, retrieved
@@ -258,3 +266,21 @@ def test_host_of_reads_the_real_host() -> None:
 
 def test_urls_in_finds_addresses_and_ignores_trailing_punctuation() -> None:
     assert urls_in("a https://x.example/a, b http://Y.example/B.") == {"https://x.example/a", "http://y.example/b"}
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Visit https://www.acme.example/hours today", "Visit https://www.acme.example/hours today"),
+        ("Claim at https://evil.example/free-gift.", "Claim at [link removed]."),
+        (
+            "Both https://evil.example/a and (https://www.acme.example/b) here",
+            "Both [link removed] and (https://www.acme.example/b) here",
+        ),
+        ("<img src=x onerror=alert(1)> and <script>x</script> text", " and x text"),
+        ("![pixel](https://evil.example/p.png?c=1)", "![pixel]([link removed])"),
+        ("no addresses at all", "no addresses at all"),
+    ],
+)
+def test_scrub_keeps_the_sites_own_addresses_and_removes_markup_and_foreign_ones(text: str, expected: str) -> None:
+    assert scrub(text, ["www.acme.example"]) == expected
