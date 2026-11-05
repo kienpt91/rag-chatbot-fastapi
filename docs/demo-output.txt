@@ -1,0 +1,33 @@
+# captured 2026-11-05T09:24:32Z by scripts/demo.sh; no hosted model was called (deterministic fake provider)
+
+$ sh scripts/eval.sh
+dataset   eval/datasets/site.jsonl  sha256:a1cb9c490896…  (44 cases)
+provider  fake  chat=fake-chat-1  embedding=fake-embedding-1
+quality   30/30 passed
+safety    14/14 passed
+tokens    in 18046  out 728
+cost      0.020337 USD
+latency   p50 5 ms  p95 7 ms  (run took 0.3 s)
+result    exit 0
+
+$ rag-chatbot check-config   (RAG_PROVIDER=fake, example tenants and price table)
+provider        fake
+models          chat=fake-chat-1 embedding=fake-embedding-1 (1536 dimensions)
+threshold       0.3
+redaction       cards, emails, phones, secrets
+database        (not set)
+tenant          maple: 2 origin(s), 0 api key(s), 0 token secret(s)
+price table     4 model(s) in USD
+configuration ok
+
+$ python -m pytest tests/e2e -v   (real server process, real PostgreSQL + pgvector, local HTTP provider)
+test_server_process.py::test_the_service_answers_from_the_site_with_citations_over_http_and_stores_the_conversation PASSED [ 11%]
+test_server_process.py::test_the_widget_flow_a_token_minted_by_the_backend_works_from_the_allowed_origin_only PASSED [ 22%]
+test_server_process.py::test_hostile_content_and_hostile_requests_never_get_through PASSED [ 33%]
+test_server_process.py::test_logs_and_the_database_hold_no_personal_data_and_no_secret PASSED [ 44%]
+test_server_process.py::test_a_provider_outage_is_a_503_that_names_nothing_and_the_service_stays_up PASSED [ 55%]
+test_server_process.py::test_a_tiny_daily_budget_makes_the_bot_fail_closed_with_a_friendly_message PASSED [ 66%]
+test_server_process.py::test_rate_limits_answer_429_with_retry_after_before_any_work PASSED [ 77%]
+test_server_process.py::test_the_service_refuses_to_start_on_a_database_that_does_not_match PASSED [ 88%]
+test_server_process.py::test_sigterm_stops_the_server_cleanly PASSED [100%]
+============================== 9 passed in 10.12s ==============================
