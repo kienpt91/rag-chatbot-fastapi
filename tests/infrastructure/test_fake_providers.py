@@ -89,7 +89,9 @@ def test_without_any_overlap_it_says_no_answer() -> None:
 
 def test_headings_are_not_quoted_as_answers() -> None:
     assert chat(prompt_for("when do you open", "## Opening hours\n\nWe open at nine.")) == "We open at nine. [s1]"
-    assert chat(prompt_for("opening hours", "## Opening hours\n\nBread is baked daily.")) == NO_ANSWER  # only the heading matches
+    assert (
+        chat(prompt_for("opening hours", "## Opening hours\n\nBread is baked daily.")) == NO_ANSWER
+    )  # only the heading matches
 
 
 def test_it_is_not_gullible_by_default() -> None:

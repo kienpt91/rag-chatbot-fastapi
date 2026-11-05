@@ -66,7 +66,7 @@ def test_a_chat_request_has_the_system_prompt_first_the_turns_after_and_the_key_
     )
     assert [m["role"] for m in recorded.body["messages"]] == ["system", "user", "assistant", "user"]
     assert recorded.body["messages"][0]["content"] == "be brief"
-    assert result.model == "chat-small" and isinstance(result.text, str) and result.usage.input_tokens > 0
+    assert result.model == "chat-small" and result.text and result.usage.input_tokens > 0
 
 
 def test_embeddings_are_requested_in_batches_and_returned_in_order(api: FakeApi) -> None:
