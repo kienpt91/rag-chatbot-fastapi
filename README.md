@@ -14,7 +14,8 @@ reference implementation written so that a freelancer can adapt it for a client 
 - **Ingestion** (`rag-chatbot ingest`): a folder of HTML, Markdown and text, or a crawl restricted to hosts you list
   (exact match, https by default, robots.txt and crawl-delay honoured, size/depth/page caps, no JavaScript, private
   addresses refused). HTML becomes text with boilerplate and hidden text removed, using the standard library only.
-  Chunks overlap and have stable ids, so re-ingesting an unchanged site embeds nothing.
+  Chunks overlap and have stable ids, so re-ingesting an unchanged site embeds nothing. Instruction-like sentences are
+  kept out of the index and listed in the report; `--exclude` keeps user-written sections out.
 - **Retrieval**: vector search and keyword search (`tsvector`) in PostgreSQL, fused with reciprocal rank fusion. Confidence
   is the cosine similarity of the best chunk; below `RAG_CONFIDENCE_THRESHOLD` the model is not called.
 - **`POST /chat`** returns an answer with citations and a `grounded` flag, refuses when out of scope, keeps a per-session
@@ -23,9 +24,10 @@ reference implementation written so that a freelancer can adapt it for a client 
   leaks internals in an error. `/healthz`, `/readyz`, `/embed-token` and `/widget.js` complete it ([docs/api.md](docs/api.md)).
 - **Schema** (`migrations/`, plain SQL on any PostgreSQL + pgvector): row-level security for the service (by tenant) and for
   Supabase clients (own conversations only), tested on a real database.
-- **Defences**: untrusted text fenced with a per-request nonce, no tools for the model, every answer checked (valid
-  citations, no leak of the rules, links only to the site's own hosts, markup removed), personal data redacted before the
-  model and the database. [SECURITY.md](SECURITY.md) names a test per claim and lists what is *not* protected.
+- **Defences**: untrusted text (sources, the question and earlier turns) fenced with a per-request nonce, no tools for the
+  model, every answer checked (valid citations, no leak of the rules, links only to the site's own hosts in any form,
+  markup removed), instruction-like sentences of a page quarantined at ingest, hidden page text dropped (best-effort),
+  personal data redacted before the model and the database. [SECURITY.md](SECURITY.md) names a test per claim and lists what is *not* protected.
 - **Widget**: one vanilla JavaScript file (`src/rag_chatbot/widget/rag-chat.js`, served at `/widget.js`), `textContent`
   only, no inline script or style. Demo page: `examples/widget/`.
 - **Evaluation**: 44 golden cases in the format of the sibling project llm-eval-harness, a built-in runner, and a wiring
@@ -145,7 +147,7 @@ Development (`requirements-dev.in`; none is installed in the service image):
   read-only non-root service came up, `/readyz` answered ready and `/chat` answered with the "I don't know" refusal of an
   empty knowledge base. Ingestion inside compose (the `docker compose run ... ingest` command in docs/deployment.md) and a
   grounded answer through it were not run; the same ingestion is covered by the tests against the same database image.
-- **Python 3.12** and the **GitHub workflows** were not run (the workflows reuse the local scripts, which were).
+- **The GitHub workflows** were not run (they reuse the local scripts, which were, on Python 3.13 and 3.12).
 - **Supabase itself**: the migrations are plain SQL tested on PostgreSQL + pgvector; the policies use `auth.uid()` and the
   `anon`/`authenticated` roles as Supabase defines them, but a hosted project was not used.
 - TLS to a real provider and real DNS (the fetcher's TLS path has no end-to-end test; its SSRF logic is tested with injected resolvers).
@@ -153,12 +155,14 @@ Development (`requirements-dev.in`; none is installed in the service image):
 
 ## What a reviewer should attack first
 
-1. **A poisoned page that is retrieved**: the checks stop instructions, rule leaks and foreign links, but a cited sentence that a
-   customer wrote is passed on (SECURITY.md, first "not protected" item). Try to get something harmful through that is not a link.
+1. **A poisoned page that is retrieved**: quarantine and the checks stop instruction wording, rule leaks and foreign links, but a
+   cited sentence that a customer wrote, in words the quarantine does not know, is passed on (SECURITY.md). Try to get
+   something harmful through that is not a link.
 2. **The answer checks** (`domain/guard.py`): leaks by paraphrase, citations that are valid but irrelevant, URLs the regex misses.
 3. **The row-level security** (`migrations/0003`): find a statement that crosses tenants; the tests are in `tests/infrastructure/test_rls.py`.
 4. **The crawler's SSRF handling** (`infrastructure/sources/http_fetcher.py`, `domain/urlpolicy.py`): host spellings, redirects, DNS.
-5. **The HTML extractor's hidden-text rules** (`domain/htmlextract.py`): a hiding style it does not know indexes attacker text.
+5. **The HTML extractor's hidden-text rules** (`domain/htmlextract.py`, `domain/textextract.py`): a hiding style, a malformed-markup
+   differential with a browser, or a stylesheet class it does not know indexes attacker text (best-effort, SECURITY.md).
 6. **Embed tokens and CORS** (`domain/auth.py`, `infrastructure/http/middleware.py`): origin handling and the unauthenticated preflight.
 
 ## License

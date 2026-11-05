@@ -23,5 +23,10 @@ First release.
 - Drop-in widget: one vanilla JavaScript file, textContent only, no inline script or style.
 - A 44-case evaluation set in the llm-eval format with a built-in runner, and a wiring for llm-eval itself; runs in CI
   against a deterministic fake provider (no hosted model is called).
+- Review hardening: ingest-time quarantine of instruction-like sentences with an operator report; hidden-text rules for
+  script double-escape, image alt text, more hiding styles and raw HTML in Markdown; `--exclude` for crawled URLs;
+  protocol-relative and Markdown links refused in answers; earlier turns fenced as data; sessions of signed-in users
+  bound to them; cancelled requests recorded; embedding usage estimated when missing; the migration ledger and identity
+  sequences revoked from the API roles; a least-privilege compose service; a stricter architecture lint.
 - Dockerfile (non-root, digest-pinned base, read-only filesystem), docker-compose for development, CI, a tag-triggered
   release workflow with build provenance, dependabot with a 7-day cooldown.

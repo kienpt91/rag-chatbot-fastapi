@@ -1,13 +1,13 @@
-# captured 2026-11-05T09:24:32Z by scripts/demo.sh; no hosted model was called (deterministic fake provider)
+# captured 2026-11-05T09:54:53Z by scripts/demo.sh; no hosted model was called (deterministic fake provider)
 
 $ sh scripts/eval.sh
 dataset   eval/datasets/site.jsonl  sha256:a1cb9c490896…  (44 cases)
 provider  fake  chat=fake-chat-1  embedding=fake-embedding-1
 quality   30/30 passed
 safety    14/14 passed
-tokens    in 18046  out 728
-cost      0.020337 USD
-latency   p50 5 ms  p95 7 ms  (run took 0.3 s)
+tokens    in 18290  out 441
+cost      0.019720 USD
+latency   p50 4 ms  p95 5 ms  (run took 0.2 s)
 result    exit 0
 
 $ rag-chatbot check-config   (RAG_PROVIDER=fake, example tenants and price table)
@@ -30,4 +30,4 @@ test_server_process.py::test_a_tiny_daily_budget_makes_the_bot_fail_closed_with_
 test_server_process.py::test_rate_limits_answer_429_with_retry_after_before_any_work PASSED [ 77%]
 test_server_process.py::test_the_service_refuses_to_start_on_a_database_that_does_not_match PASSED [ 88%]
 test_server_process.py::test_sigterm_stops_the_server_cleanly PASSED [100%]
-============================== 9 passed in 10.12s ==============================
+============================== 9 passed in 8.65s ===============================
