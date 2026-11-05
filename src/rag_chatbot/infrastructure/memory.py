@@ -120,7 +120,9 @@ class InMemorySessionStore:
 
     async def get_session(self, tenant_id: str, session_id: str) -> SessionInfo | None:
         session = self._sessions.get((tenant_id, session_id))
-        return None if session is None else SessionInfo(session_id, tenant_id, len(session.messages))
+        if session is None:
+            return None
+        return SessionInfo(session_id, tenant_id, len(session.messages), session.owner_id)
 
     async def append_messages(
         self,

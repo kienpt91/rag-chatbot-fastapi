@@ -103,6 +103,7 @@ class SessionInfo:
     session_id: str
     tenant_id: str
     message_count: int
+    owner_id: str | None = None  # the signed-in user the conversation belongs to; None for an anonymous visitor
 
 
 class SessionStore(Protocol):

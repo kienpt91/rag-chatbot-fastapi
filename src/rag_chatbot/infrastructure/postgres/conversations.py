@@ -26,11 +26,13 @@ class PostgresSessionStore:
         with storage_errors():
             async with tenant_transaction(self._pool, tenant_id) as conn:
                 cursor = await conn.execute(
-                    "SELECT message_count FROM chat_sessions WHERE tenant_id = %s AND session_id = %s",
+                    "SELECT message_count, owner_id FROM chat_sessions WHERE tenant_id = %s AND session_id = %s",
                     (tenant_id, session_id),
                 )
                 row = await cursor.fetchone()
-        return None if row is None else SessionInfo(session_id, tenant_id, int(row[0]))
+        if row is None:
+            return None
+        return SessionInfo(session_id, tenant_id, int(row[0]), None if row[1] is None else str(row[1]))
 
     async def append_messages(
         self,

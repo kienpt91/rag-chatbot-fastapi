@@ -24,6 +24,7 @@ from urllib.parse import urlsplit
 
 from rag_chatbot.domain.errors import ConfigurationError, ProviderError
 from rag_chatbot.domain.model import ChatCompletion, ChatTurn, EmbeddingResult, Usage
+from rag_chatbot.domain.text import estimate_tokens
 
 _LOOPBACK = frozenset({"localhost", "127.0.0.1", "::1"})
 _RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
@@ -228,7 +229,11 @@ class HttpEmbeddingProvider:
                 payload["dimensions"] = self.dimensions
             parsed = await self._client.post("/embeddings", payload)
             vectors.extend(self._vectors(parsed, len(batch)))
-            usage += _usage(parsed)
+            reported = _usage(parsed)
+            # an answer without usage must not make the question free: estimate it, and say so
+            usage += (
+                reported if reported.input_tokens else Usage(sum(estimate_tokens(t) for t in batch), 0, estimated=True)
+            )
         return EmbeddingResult(tuple(vectors), usage, self.model)
 
     def _vectors(self, parsed: dict[str, Any], expected: int) -> list[tuple[float, ...]]:

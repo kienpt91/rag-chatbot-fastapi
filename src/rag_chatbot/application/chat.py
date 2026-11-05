@@ -30,7 +30,6 @@ from rag_chatbot.application.retrieval import RetrievalOutcome, Retriever, searc
 from rag_chatbot.application.settings import BLOCKED_MESSAGE, ChatSettings
 from rag_chatbot.domain.errors import (
     BudgetExhaustedError,
-    ChatbotError,
     InvalidRequestError,
     SessionFullError,
     SessionNotFoundError,
@@ -114,8 +113,8 @@ class ChatService:
             await self._sessions.create_session(request.tenant.tenant_id, session_id, request.owner_id)
             return session_id, True
         info = await self._sessions.get_session(request.tenant.tenant_id, request.session_id)
-        if info is None:
-            raise SessionNotFoundError(request.session_id)
+        if info is None or (info.owner_id is not None and info.owner_id != request.owner_id):
+            raise SessionNotFoundError(request.session_id)  # a session of a signed-in user is that user's alone
         if info.message_count >= self._settings.max_messages_per_session:
             raise SessionFullError(request.session_id)
         return request.session_id, False
@@ -251,7 +250,7 @@ class ChatService:
             completion = await self._chat.complete(
                 prompt.system, prompt.messages, max_output_tokens=settings.max_output_tokens
             )
-        except ChatbotError:
+        except BaseException:  # a provider failure, or this request being cancelled after the embedding was paid for
             await self._record_failure(request, session_id, embedding_tokens, embedding_cost, started)
             raise
         usage = completion.usage
