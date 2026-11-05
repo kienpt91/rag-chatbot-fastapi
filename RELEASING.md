@@ -52,6 +52,17 @@ pip install ./rag_chatbot-0.1.0-py3-none-any.whl     # no dependencies are insta
 The checksum shows the file is the one listed; the attestation shows it was built by this repository's workflow
 from the tagged commit. Do both.
 
+## Dependabot pull requests
+
+**Do not merge a Dependabot pull request.** Dependabot recompiles `requirements.txt` and `requirements-dev.txt` from the
+`.in` files in its own style (sorted, extras such as `coverage[toml]` in the names, `setuptools` dropped as unsafe, every
+file of a release hashed). Read the pull request as a **version bump** only: check that each new release is at least seven
+days old and compatible (its `requires_dist`), edit the pin in `requirements.in` or `requirements-dev.in`, regenerate
+both locks with `scripts/lock-deps.py` (commands below), run `sh scripts/verify.sh`, commit, and close the pull request. The
+tools in `scripts/` read both styles, so CI on a Dependabot branch is not red for format reasons, but its lock is never the one
+we ship. A Dependabot bump of the Python image to another minor version (3.14, 3.15) is ignored in `dependabot.yml`; a 3.13.x
+digest bump is taken only after checking that the image is at least seven days old and still `python:3.13.x-slim-trixie`.
+
 ## Updating the pinned tools
 
 - **A development package:** edit its pin in `requirements-dev.in` (or `requirements.in`), then

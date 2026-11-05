@@ -8,6 +8,13 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    # one pull request for all Python packages, to be read as a list of version bumps (see RELEASING.md)
+    groups:
+      python-packages:
+        patterns: ["*"]
+    ignore:
+      # the build backend is pinned in pyproject.toml and locked in requirements-build.txt, which has no input file
+      - dependency-name: setuptools
     # Dependabot recompiles requirements.txt and requirements-dev.txt from their .in files in its own style (sorted,
     # extras in names, setuptools dropped as unsafe): the tools read that. The build backend lives in requirements-build.txt
     # without an .in file so that it survives. requirements.in and requirements-dev.in are the inputs, the .txt files the hashed locks: after merging an update,
@@ -19,6 +26,10 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 3
+    ignore:
+      # the image follows Python 3.13.x (the tag in the Dockerfile); another minor version is a decision, not an update
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
