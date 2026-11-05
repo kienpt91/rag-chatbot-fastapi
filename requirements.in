@@ -1,0 +1,22 @@
+# Exact pins of everything the service needs at run time, including the transitive packages. `scripts/lock-deps.py`
+# turns this file into requirements.txt (with the sha256 of every wheel for CPython 3.12/3.13 on Linux x86_64 and
+# aarch64) and refuses any file that was uploaded to PyPI less than seven days before the cutoff
+# (see scripts/check-dep-age.py). Bump a pin by editing it here. Why each package is here: README, "Dependencies".
+fastapi==0.162.0
+uvicorn==0.54.0
+pydantic==2.14.1
+psycopg==3.3.6
+psycopg-binary==3.3.6
+psycopg-pool==3.3.3
+# transitive
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+click==8.5.0
+h11==0.16.0
+idna==3.20
+opentelemetry-api==1.45.1
+pydantic-core==2.50.1
+starlette==1.9.0
+typing-extensions==4.16.0
+typing-inspection==0.4.4
