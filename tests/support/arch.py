@@ -66,6 +66,12 @@ UNSAFE_MODULES = frozenset(
 )  # fmt: skip
 ASYNC_MODULES = frozenset({"asyncio"})  # allowed from infrastructure outwards: a pure layer never schedules anything
 
+PROCESS_ATTRS = frozenset({"create_subprocess_exec", "create_subprocess_shell"})
+NETWORK_ATTRS = frozenset(
+    {"open_connection", "start_server", "open_unix_connection", "start_unix_server", "create_server"}
+)
+REFLECTION_CALLS = frozenset({"vars", "globals", "locals"})
+OPERATOR_ESCAPES = frozenset({"attrgetter", "methodcaller"})
 FORBIDDEN_CALLS = frozenset({"eval", "exec", "compile", "__import__"})
 FORBIDDEN_ATTRS = frozenset(
     {
@@ -135,6 +141,16 @@ def _third_party_allowed(top: str, relpath: str) -> bool:
     )
 
 
+def _is_log_record_vars(call: ast.Call) -> bool:
+    """`vars(record)` and `vars(logging.makeLogRecord(...))`: the one use the logging formatter needs."""
+    if not (isinstance(call.func, ast.Name) and call.func.id == "vars" and len(call.args) == 1):
+        return False
+    arg = call.args[0]
+    if isinstance(arg, ast.Name):
+        return arg.id == "record"
+    return isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute) and arg.func.attr == "makeLogRecord"
+
+
 def _is_clock_class(node: ast.expr) -> bool:
     """`datetime.now()`, `date.today()`, `datetime.datetime.now()`: the standard library reading the clock. A call on a
     value that was passed in (`clock.now()`, `self._clock.now()`) is the Clock port doing its job."""
@@ -201,6 +217,24 @@ def _syntax_violations(relpath: str, layer: str, tree: ast.AST) -> list[str]:
             if node.level == 0 and node.module == "os":
                 for alias in node.names:
                     os_name(alias.name, where)
+            if node.level == 0 and node.module == "sys" and any(a.name == "modules" for a in node.names):
+                found.append(f"{where}: from sys import modules reaches every other module")
+            if node.level == 0 and node.module == "operator":
+                found.extend(
+                    f"{where}: operator.{a.name} looks attributes up by name"
+                    for a in node.names
+                    if a.name in OPERATOR_ESCAPES
+                )
+            if node.level == 0 and node.module == "asyncio":
+                found.extend(
+                    f"{where}: asyncio.{a.name} creates a process" for a in node.names if a.name in PROCESS_ATTRS
+                )
+                if relpath not in NETWORK_FILES:
+                    found.extend(
+                        f"{where}: asyncio.{a.name} is raw network access"
+                        for a in node.names
+                        if a.name in NETWORK_ATTRS
+                    )
         elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):
             if node.id in FORBIDDEN_CALLS:
                 found.append(f"{where}: reference to {node.id} (model output and page text are never executed)")
@@ -211,6 +245,14 @@ def _syntax_violations(relpath: str, layer: str, tree: ast.AST) -> list[str]:
         elif isinstance(node, ast.Attribute):
             if node.attr in FORBIDDEN_ATTRS:
                 found.append(f"{where}: forbidden attribute {node.attr}")
+            if node.attr in PROCESS_ATTRS:
+                found.append(f"{where}: {node.attr} creates a process")
+            if node.attr in NETWORK_ATTRS and relpath not in NETWORK_FILES:
+                found.append(
+                    f"{where}: {node.attr} is raw network access, allowed only in {', '.join(sorted(NETWORK_FILES))}"
+                )
+            if node.attr in OPERATOR_ESCAPES:
+                found.append(f"{where}: {node.attr} looks attributes up by name")
             if isinstance(node.value, ast.Name) and node.value.id in os_names:
                 os_name(node.attr, where)
             if (
@@ -223,6 +265,8 @@ def _syntax_violations(relpath: str, layer: str, tree: ast.AST) -> list[str]:
                     f"{where}: {node.attr}() on the datetime classes in the {layer} layer: the time comes from the Clock port"
                 )
         elif isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in REFLECTION_CALLS and not _is_log_record_vars(node):
+                found.append(f"{where}: {node.func.id}() exposes the namespace of a module or frame")
             if isinstance(node.func, ast.Name) and node.func.id in REFLECTION and len(node.args) >= 2:
                 name = node.args[1]
                 if not (isinstance(name, ast.Constant) and isinstance(name.value, str)):
