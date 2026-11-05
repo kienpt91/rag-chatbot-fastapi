@@ -28,7 +28,7 @@ TOKEN_PREFIX = "ragt1."  # noqa: S105 - the visible start of a token, not a pass
 MAX_CREDENTIAL_CHARS = 2048
 MAX_TOKEN_TTL_S = 24 * 3600
 # the subject is the end user's Supabase user id: row-level security compares it with auth.uid(), a uuid
-SUBJECT = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+SUBJECT = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z")
 
 Method = Literal["api_key", "embed_token"]
 
@@ -89,9 +89,14 @@ def read_unverified_claims(token: str) -> tuple[TokenClaims, str, bytes]:
     if len(parts) != 2:
         raise AuthenticationError("token: shape")
     body, signature = parts
+    raw = _b64d(body)
+    if (
+        len(raw) > 1024 or raw.count(b"{") != 1 or b"[" in raw
+    ):  # a payload is one flat object: refuse deep nesting unparsed
+        raise AuthenticationError("token: payload")
     try:
-        payload = json.loads(_b64d(body))
-    except (ValueError, UnicodeDecodeError):
+        payload = json.loads(raw)
+    except (ValueError, UnicodeDecodeError, RecursionError):
         raise AuthenticationError("token: payload") from None
     if not isinstance(payload, dict) or set(payload) - {"t", "exp", "sub", "o"}:
         raise AuthenticationError("token: payload")

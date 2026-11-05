@@ -16,9 +16,9 @@ from urllib.parse import urlsplit
 from rag_chatbot.domain.errors import ConfigurationError
 from rag_chatbot.domain.pricing import usd_to_micros
 
-TENANT_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
-_HEX64 = re.compile(r"^[0-9a-f]{64}$")
-_HOSTNAME = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$")
+TENANT_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}\Z")
+_HEX64 = re.compile(r"^[0-9a-f]{64}\Z")
+_HOSTNAME = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*\Z")
 _LOOPBACK = frozenset({"localhost", "127.0.0.1", "::1"})
 MIN_SECRET_BYTES = 32
 _KEYS = frozenset(

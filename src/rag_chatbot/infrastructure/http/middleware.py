@@ -26,7 +26,7 @@ from rag_chatbot.infrastructure.http.settings import HttpSettings
 
 log = logging.getLogger("rag_chatbot.http")
 
-_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{8,64}$")
+_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{8,64}\Z")
 STATUS_FOR_CODE = {
     "invalid_request": 400,
     "unauthorized": 401,
