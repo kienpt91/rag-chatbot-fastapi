@@ -1,11 +1,11 @@
 # Exact pins of every development package, including the transitive ones. Nothing here is a runtime dependency:
 # the service's own packages are in requirements.in. `scripts/lock-deps.py` turns this file into requirements-dev.txt
 # (hashed, same targets and age rule). Packages that appear in both files are pinned to the same version.
-pytest==9.1.1
+pytest==9.2.0
 pytest-cov==7.1.0
 coverage==7.17.0
-mypy==2.4.0
-ruff==0.17.2
+mypy==2.4.1
+ruff==0.17.3
 build==1.6.1
 httpx2==2.16.0
 # transitive
