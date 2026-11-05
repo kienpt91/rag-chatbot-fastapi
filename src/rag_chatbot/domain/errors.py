@@ -25,6 +25,11 @@ class AuthenticationError(ChatbotError):
     public_message = "Authentication failed."
 
 
+class ForbiddenError(ChatbotError):
+    code = "forbidden"
+    public_message = "This credential may not do that."
+
+
 class OriginNotAllowedError(ChatbotError):
     code = "origin_not_allowed"
     public_message = "This site may not use the assistant."
