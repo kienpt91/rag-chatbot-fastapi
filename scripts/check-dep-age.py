@@ -5,7 +5,7 @@ old on PyPI.
     python scripts/check-dep-age.py [CUTOFF_ISO_DATE] [--index URL] [--lock FILE --input FILE]
 
 Without a cutoff it is seven days before now. Without --lock and --input it checks both locks of the project
-(requirements.txt against requirements.in, requirements-dev.txt against requirements-dev.in). For each ``name==version`` of a lock and each
+(requirements.txt against requirements.in, requirements-dev.txt against requirements-dev.in, requirements-build.txt alone). For each ``name==version`` of a lock and each
 ``--hash=sha256:...`` it asks the index's JSON API for the files of that exact release, finds the file with that
 hash and compares its upload time with the cutoff. It also fails when
 
@@ -32,7 +32,10 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_INDEX = "https://pypi.org"
-PIN = re.compile(r"^(?P<name>[A-Za-z0-9._-]+)==(?P<version>[A-Za-z0-9.!+_-]+)\s*\\?$")
+# `name==version`, optionally `name[extra,other]==version` (pip-compile writes the extras into a lock)
+PIN = re.compile(
+    r"^(?P<name>[A-Za-z0-9._-]+)(?:\[[A-Za-z0-9._-]+(?:,[A-Za-z0-9._-]+)*\])?==(?P<version>[A-Za-z0-9.!+_-]+)\s*\\?$"
+)
 HASH = re.compile(r"--hash=sha256:(?P<digest>[0-9a-f]{64})")
 
 
@@ -55,6 +58,20 @@ def parse(text: str) -> dict[tuple[str, str], list[str]]:
     return pins
 
 
+def declared_pins(text: str) -> set[tuple[str, str]]:
+    """The (normalised name, version) pairs of an input file, extras ignored; blank lines and comments skipped."""
+    pins: set[tuple[str, str]] = set()
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        pin = PIN.match(stripped)
+        if pin is None:
+            raise ValueError(f"cannot read line: {stripped!r}")
+        pins.add((normalise(pin["name"]), pin["version"]))
+    return pins
+
+
 def normalise(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
@@ -65,22 +82,18 @@ def index_is_acceptable(index: str) -> bool:
     return parts.scheme == "https" or (parts.scheme == "http" and host in ("127.0.0.1", "localhost", "::1"))
 
 
-def check_lock(lock: Path, input_file: Path, index: str, cutoff: datetime) -> tuple[int, int, list[str]]:
+def check_lock(lock: Path, input_file: Path | None, index: str, cutoff: datetime) -> tuple[int, int, list[str]]:
     """Returns (status, files checked, problems). Status 0 fine, 1 a problem, 2 the index could not be asked."""
     pins = parse(lock.read_text())
     if not pins:
         print(f"{lock.name}: the lock pins nothing", file=sys.stderr)
         return 2, 0, []
-    declared = {
-        (normalise(name), version)
-        for name, version in (
-            line.strip().split("==", 1)
-            for line in input_file.read_text().splitlines()
-            if line.strip() and not line.startswith("#")
+    declared = declared_pins(input_file.read_text()) if input_file is not None else None
+    if declared is not None and declared != {(normalise(name), version) for name, version in pins}:
+        print(
+            f"{input_file.name if input_file else 'the input'} and {lock.name} disagree: run scripts/lock-deps.py",
+            file=sys.stderr,
         )
-    }
-    if declared != {(normalise(name), version) for name, version in pins}:
-        print(f"{input_file.name} and {lock.name} disagree: run scripts/lock-deps.py", file=sys.stderr)
         return 1, 0, []
     too_new: list[str] = []
     files_checked = 0
