@@ -5,7 +5,10 @@ A checklist, in the order that works, for putting this service behind a client's
 1. **Content.** Point the ingestion at the client's site: `rag-chatbot ingest --tenant NAME --crawl https://www.client.example/
    --allow-host www.client.example` (robots.txt is honoured, https only, private addresses refused), or `--folder` with
    exported HTML/Markdown/text and `--base-url` so citations link to the real pages. Leave out what visitors write
-   themselves: `--exclude 'reviews/*' --exclude 'forum/*'`. Re-run it on a schedule (cron, CI): unchanged chunks are
+   themselves: `--exclude 'reviews/*' --exclude 'forum/*'` (a pattern is matched, case-insensitively and without the
+   query, against the page's path: `reviews/*` and `*/reviews/*` both exclude `https://www.client.example/Reviews/x?p=2`).
+   Read the `quarantined` lines of the ingest report: they are sentences that look like instructions to an assistant and
+   were kept out of the index; an honest sentence among them means the wording needs a look (or `RAG_QUARANTINE_INSTRUCTIONS=false`). Re-run it on a schedule (cron, CI): unchanged chunks are
    not embedded again, so a nightly run of an unchanged site costs nothing; add `--prune` to drop pages that left
    the site (it refuses to prune after an incomplete crawl).
 2. **Tenant.** `rag-chatbot init-tenant --id client --name "Client Name" --origin https://www.client.example --out tenants.json`

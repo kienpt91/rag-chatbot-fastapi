@@ -42,6 +42,8 @@ jobs:
       # the evaluation set against the DETERMINISTIC FAKE provider: no hosted model is called
       - name: Evaluate (fake provider)
         run: sh scripts/eval.sh
+      - name: Evaluate with the ingest-time quarantine off (the answer checks alone must hold)
+        run: EVAL_ENV=RAG_QUARANTINE_INSTRUCTIONS=false sh scripts/eval.sh
 
   image:
     runs-on: ubuntu-latest

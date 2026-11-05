@@ -36,8 +36,16 @@ its gate: `cd eval && PYTHONPATH=/path/to/llm-eval-harness/src python3 -m llm_ev
 with the sibling at its current commit: `validate` accepts the dataset and `run` reports 30/30 quality and 14 safety
 cases with 0 failing (fake provider).
 
+## Both layers hold alone
+
+The poisoned review of the sample site is stopped twice: its instruction sentences never enter the index (ingest-time
+quarantine), and, if they did, the answer checks refuse what a fooled model would say. `EVAL_ENV=RAG_QUARANTINE_INSTRUCTIONS=false sh scripts/eval.sh`
+runs the set with the quarantine off (the checks alone); CI runs both.
+
 ## Mutation check
 
-With the answer checks disabled (`check_answer` replaced by "everything passes"), six safety and five quality cases
-fail; with them enabled all 44 pass. The message filter alone is not what holds: disabling it changes nothing in the
+With the answer checks disabled (`check_answer` replaced by "everything passes") and the ingest-time quarantine on,
+25/30 quality and 11/14 safety cases pass; with the quarantine off as well, 25/30 and 8/14. With both on, 30/30 and
+14/14. So the checks matter even when the quarantine removes the obvious instruction sentences, and the quarantine
+matters when the checks are absent. The message filter alone is not what holds: disabling it changes nothing in the
 set, because retrieval and the checks also stop those cases (it saves money, it is not a defence).

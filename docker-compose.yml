@@ -43,8 +43,15 @@ services:
   app:
     build: .
     command: ["serve"]
-    env_file: .env
+    # only what the service needs: NOT the whole .env, which also holds the database superuser password
     environment:
+      RAG_PROVIDER: ${RAG_PROVIDER:-fake}
+      RAG_CONFIDENCE_THRESHOLD: ${RAG_CONFIDENCE_THRESHOLD:-0.10}
+      RAG_API_BASE_URL: ${RAG_API_BASE_URL:-}
+      RAG_API_KEY: ${RAG_API_KEY:-}
+      RAG_CHAT_MODEL: ${RAG_CHAT_MODEL:-}
+      RAG_EMBEDDING_MODEL: ${RAG_EMBEDDING_MODEL:-}
+      RAG_EMBEDDING_DIMENSIONS: ${RAG_EMBEDDING_DIMENSIONS:-1536}
       RAG_DATABASE_URL: "host=db user=rag_svc dbname=rag password=${RAG_DB_PASSWORD}"
       RAG_TENANTS_FILE: /config/tenants.json
       RAG_PRICE_TABLE_FILE: /config/prices.json

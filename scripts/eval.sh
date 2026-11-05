@@ -5,4 +5,5 @@
 # failed, 4 a safety case failed. The report is written to out/eval-report.json.
 set -eu
 here=$(dirname "$0")
-exec sh "$here/py.sh" "set -a; . eval/fake.settings; set +a; PYTHONPATH=src python -m rag_chatbot eval $*"
+# EVAL_ENV='NAME=value ...' adds settings, for example RAG_QUARANTINE_INSTRUCTIONS=false to test the answer checks alone
+exec sh "$here/py.sh" "set -a; . eval/fake.settings; ${EVAL_ENV:+export $EVAL_ENV;} set +a; PYTHONPATH=src python -m rag_chatbot eval $*"

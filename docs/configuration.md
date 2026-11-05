@@ -30,6 +30,7 @@ configuration without connecting to anything or printing a secret). `*_FILE` var
 | `RAG_DAILY_BUDGET` | none | per tenant per UTC day, in the price table's currency; a tenant's `daily_budget` wins |
 | `RAG_CHUNK_TARGET_TOKENS`, `_MAX_`, `_OVERLAP_`, `_MIN_` | 220, 350, 40, 40 | chunking (`RAG_CHUNK_*_TOKENS`) |
 | `RAG_EMBED_BATCH_SIZE`, `RAG_MAX_CHUNKS_PER_DOCUMENT` | 32, 300 | ingestion |
+| `RAG_QUARANTINE_INSTRUCTIONS` | true | leave instruction-like sentences of a page out of the index, and report them |
 | `RAG_HOST`, `RAG_PORT` | 127.0.0.1, 8000 | bind address |
 | `RAG_MAX_BODY_BYTES` | 16384 | request body limit |
 | `RAG_IP_BURST`, `RAG_IP_PER_MINUTE` | 20, 30 | per-address limit |
