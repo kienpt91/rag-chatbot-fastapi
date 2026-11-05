@@ -4,8 +4,9 @@ A model that was fooled by text on a page, or by the visitor, produces an answer
 for the ways such an answer shows itself, and they fail closed: an answer that fails any of them is replaced by a
 refusal and never shown, stored or cited.
 
-* every statement must carry a citation, and every cited id must be one of the sources this request was given
-  (a model cannot cite a document it was not shown, nor invent one);
+* the answer must carry at least one citation, and every cited id must be one of the sources this request was given
+  (a model cannot cite a document it was not shown, nor invent one). A sentence without a citation next to a cited one
+  is not detected;
 * the answer must not contain the system prompt, the internal marker or a long run of its words;
 * the answer may link only to the site's own hosts (the tenant's origins and its declared link hosts, plus the hosts
   of the pages it cites), even when a page of the site lists some other address: a link or an image whose address
@@ -34,7 +35,10 @@ SHINGLE_WORDS = 6
 _CITE_GROUP = re.compile(r"\[\s*(s\d{1,3}(?:\s*[,;]\s*s\d{1,3})*)\s*\]", re.IGNORECASE)
 _CITE_ID = re.compile(r"s\d{1,3}", re.IGNORECASE)
 _URL = re.compile(r"(?:https?|ftp)://[^\s<>\"'`)\]]{1,2000}", re.IGNORECASE)
-_BAD_SCHEME = re.compile(r"\b(?:javascript|data|vbscript|file)\s*:", re.IGNORECASE)
+_BAD_SCHEME = re.compile(r"\b(?:javascript|data|vbscript|file|mailto|tel|sms)\s*:", re.IGNORECASE)
+_PROTOCOL_RELATIVE = re.compile(r"(?<![:\w/.])//[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}[^\s<>\"'`)\]]{0,2000}")
+_MARKDOWN_IMAGE = re.compile(r"!\[[^\]\n]{0,200}\]\(")
+_MARKDOWN_TARGET = re.compile(r"\]\(\s*<?([^)\s>]{1,2000})")
 _TAG = re.compile(r"<!--.{0,2000}?-->|</?[A-Za-z!?][^<>\n]{0,300}>", re.DOTALL)
 _NO_ANSWER = re.compile(rf"^\W*{NO_ANSWER}\W*$", re.IGNORECASE)
 
@@ -119,7 +123,13 @@ def check_answer(
     if leaks_system_prompt(text, system_prompt, canary):
         return GuardResult(False, reason="system_prompt_leak")
     allowed = {h.rstrip(".").casefold() for h in allowed_hosts}
-    if _BAD_SCHEME.search(text) or any(host_of(url) not in allowed for url in urls_in(text)):
+    if (
+        _BAD_SCHEME.search(text)
+        or _MARKDOWN_IMAGE.search(text)  # an image has no business in a plain-text answer, and its address leaks
+        or any(host_of(url) not in allowed for url in urls_in(text))
+        or any(host_of(m.group(0)) not in allowed for m in _PROTOCOL_RELATIVE.finditer(text))
+        or any(host_of(m.group(1)) not in allowed for m in _MARKDOWN_TARGET.finditer(text))
+    ):
         return GuardResult(False, reason="unverified_link")
     cited: dict[str, None] = {}
     for group in _CITE_GROUP.finditer(text):
