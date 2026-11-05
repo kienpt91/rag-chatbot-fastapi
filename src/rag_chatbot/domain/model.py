@@ -99,6 +99,12 @@ class ChatTurn:
 
 
 @dataclass(frozen=True, slots=True)
+class SearchHit:
+    chunk: Chunk
+    similarity: float  # cosine similarity of the query and the chunk, clamped to 0..1
+
+
+@dataclass(frozen=True, slots=True)
 class RetrievedChunk:
     chunk: Chunk
     similarity: float  # cosine similarity of the query and the chunk, 0..1 (negative values are clamped to 0)

@@ -35,6 +35,11 @@ class SessionNotFoundError(ChatbotError):
     public_message = "The conversation was not found. Start a new one."
 
 
+class SessionFullError(ChatbotError):
+    code = "session_full"
+    public_message = "This conversation has reached its length limit. Please start a new one."
+
+
 class RateLimitedError(ChatbotError):
     code = "rate_limited"
     public_message = "Too many messages. Please wait a moment and try again."

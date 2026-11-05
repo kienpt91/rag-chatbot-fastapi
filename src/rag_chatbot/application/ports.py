@@ -18,6 +18,7 @@ from rag_chatbot.domain.model import (
     Chunk,
     EmbeddingResult,
     RawPage,
+    SearchHit,
     Usage,
 )
 
@@ -57,12 +58,6 @@ class ChatProvider(Protocol):
     async def complete(self, system: str, messages: Sequence[ChatTurn], *, max_output_tokens: int) -> ChatCompletion:
         """The model's answer. The model has no tools. Raises `ProviderError` for any failure."""
         ...
-
-
-@dataclass(frozen=True, slots=True)
-class SearchHit:
-    chunk: Chunk
-    similarity: float  # cosine similarity of the query and the chunk, clamped to 0..1
 
 
 class ChunkStore(Protocol):
@@ -118,7 +113,13 @@ class SessionStore(Protocol):
         ...
 
     async def append_messages(
-        self, tenant_id: str, session_id: str, turns: Sequence[ChatTurn], *, grounded: bool | None, chunk_ids: Sequence[str]
+        self,
+        tenant_id: str,
+        session_id: str,
+        turns: Sequence[ChatTurn],
+        *,
+        grounded: bool | None,
+        chunk_ids: Sequence[str],
     ) -> None:
         """Append turns in order. `grounded` and `chunk_ids` describe the last (assistant) turn."""
         ...
