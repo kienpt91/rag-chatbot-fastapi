@@ -77,8 +77,14 @@ def migrate(dsn: str, directory: Path) -> list[str]:
                         (migration.version, migration.checksum),
                     )
                 applied.append(migration.version)
+            # the ledger is created here, outside the migrations: on Supabase, default privileges would hand it to the
+            # API roles, which could then forge a row and make the service refuse to start
             conn.execute(
-                "DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rag_app') THEN "
+                "DO $$ BEGIN REVOKE ALL ON schema_migrations FROM PUBLIC; "
+                "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN REVOKE ALL ON schema_migrations FROM anon; END IF; "
+                "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN "
+                "REVOKE ALL ON schema_migrations FROM authenticated; END IF; "
+                "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rag_app') THEN "
                 "GRANT SELECT ON schema_migrations TO rag_app; END IF; END $$"
             )
     except psycopg.Error as error:

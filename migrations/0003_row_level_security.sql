@@ -29,6 +29,9 @@ ALTER TABLE usage_events  FORCE ROW LEVEL SECURITY;
 -- no PUBLIC access to anything; grant exactly what each role needs
 REVOKE ALL ON documents, chunks, chat_sessions, chat_messages, usage_events FROM PUBLIC, anon, authenticated;
 
+-- identity sequences too: Supabase's default privileges grant them to the API roles, and nextval() would burn ids
+REVOKE ALL ON SEQUENCE chat_messages_id_seq, usage_events_id_seq FROM PUBLIC, anon, authenticated;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON documents, chunks, chat_sessions, chat_messages TO rag_app;
 GRANT SELECT, INSERT ON usage_events TO rag_app;  -- the ledger is append-only for the service
 GRANT USAGE ON SEQUENCE chat_messages_id_seq, usage_events_id_seq TO rag_app;
