@@ -1,0 +1,13 @@
+.git
+out
+.venv
+tests
+eval
+examples
+docs
+scripts
+node_modules
+*.md
+.env
+.env.*
+tenants.json

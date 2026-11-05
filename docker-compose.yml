@@ -1,0 +1,65 @@
+# Local development stack: PostgreSQL + pgvector (pinned by digest: 0.8.6-pg16, image created 2026-08-13), the schema,
+# the service role and the service. Copy .env.example to .env first. Not a production file: see docs/deployment.md.
+services:
+  db:
+    image: pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+    environment:
+      POSTGRES_PASSWORD: ${RAG_DB_ADMIN_PASSWORD:?set it in .env}
+      POSTGRES_DB: rag
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rag -h 127.0.0.1"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "127.0.0.1:5432:5432"
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    security_opt: ["no-new-privileges:true"]
+
+  migrate:
+    build: .
+    command: ["migrate"]
+    environment:
+      RAG_MIGRATE_DATABASE_URL: "host=db user=postgres dbname=rag password=${RAG_DB_ADMIN_PASSWORD}"
+    depends_on:
+      db: {condition: service_healthy}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  role:
+    image: pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+    entrypoint: ["psql", "-v", "ON_ERROR_STOP=1", "-v", "service_password=${RAG_DB_PASSWORD:?set it in .env}", "-h", "db", "-U", "postgres", "-d", "rag", "-f", "/create-service-role.sql"]
+    environment:
+      PGPASSWORD: ${RAG_DB_ADMIN_PASSWORD}
+    volumes:
+      - ./docker/create-service-role.sql:/create-service-role.sql:ro
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+
+  app:
+    build: .
+    command: ["serve"]
+    env_file: .env
+    environment:
+      RAG_DATABASE_URL: "host=db user=rag_svc dbname=rag password=${RAG_DB_PASSWORD}"
+      RAG_TENANTS_FILE: /config/tenants.json
+      RAG_PRICE_TABLE_FILE: /config/prices.json
+    volumes:
+      - ./tenants.json:/config/tenants.json:ro
+      - ./examples/prices.example.json:/config/prices.json:ro
+    depends_on:
+      role: {condition: service_completed_successfully}
+    ports:
+      - "127.0.0.1:8000:8000"
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+volumes:
+  dbdata:
