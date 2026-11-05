@@ -117,3 +117,10 @@ def test_the_threshold_matters_a_strict_one_refuses_what_a_lenient_one_answers(t
     strict = {**fake_env(), "RAG_CONFIDENCE_THRESHOLD": "0.99"}
     assert run_eval("--dataset", dataset, "--report", str(tmp_path / "r.json"), env=strict)[0] == 1
     assert run_eval("--dataset", dataset, "--report", str(tmp_path / "r.json"))[0] == 0
+
+
+def test_the_answer_checks_alone_hold_the_whole_set_when_the_ingest_quarantine_is_off(tmp_path: Path) -> None:
+    env = {**fake_env(), "RAG_QUARANTINE_INSTRUCTIONS": "false"}
+    code, out, err = run_eval("--report", str(tmp_path / "r.json"), env=env)
+    assert code == 0, out + err
+    assert "quality   30/30 passed" in out and "safety    14/14 passed" in out

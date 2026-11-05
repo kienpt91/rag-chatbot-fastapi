@@ -179,6 +179,13 @@ def _print_ingest(
     out.write(
         f"chunks          {report.chunks_total} ({report.chunks_embedded} embedded, {report.chunks_reused} reused unchanged)\n"
     )
+    if report.quarantined_total:
+        documents = {q.document_id for q in report.quarantined}
+        out.write(
+            f"quarantined     {report.quarantined_total} instruction-like sentence(s), kept out of the index (first {len(documents)} document(s) below)\n"
+        )
+        for item in report.quarantined[:20]:
+            out.write(f"  quarantined   {item.document_id}: {json.dumps(item.sentence[:120], ensure_ascii=True)}\n")
     if report.chunks_dropped:
         out.write(f"chunks dropped  {report.chunks_dropped} (over the per-document cap)\n")
     out.write(

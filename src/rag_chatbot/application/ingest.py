@@ -18,11 +18,22 @@ from rag_chatbot.domain.errors import ProviderError
 from rag_chatbot.domain.extraction import extract_page
 from rag_chatbot.domain.model import Chunk, RawPage, SourceDocument, Usage
 from rag_chatbot.domain.pricing import PriceTable
+from rag_chatbot.domain.quarantine import quarantine
+from rag_chatbot.domain.scope import page_instruction_reason
 from rag_chatbot.domain.text import normalise_text
 from rag_chatbot.domain.urlpolicy import document_id_for_path, document_id_for_url
 
 log = logging.getLogger("rag_chatbot.ingest")
 _MAX_TITLE_CHARS = 200
+
+
+MAX_REPORTED_QUARANTINED = 200
+
+
+@dataclass(frozen=True, slots=True)
+class Quarantined:
+    document_id: str
+    sentence: str
 
 
 @dataclass(slots=True)
@@ -34,6 +45,8 @@ class IngestReport:
     chunks_embedded: int = 0
     chunks_reused: int = 0
     chunks_dropped: int = 0  # over the per-document cap
+    quarantined_total: int = 0  # instruction-like sentences left out of the index
+    quarantined: list[Quarantined] = field(default_factory=list)  # the first of them, for the operator to read
     embedding_usage: Usage = field(default_factory=Usage)
     cost_micros: int = 0
     document_ids: set[str] = field(default_factory=set)
@@ -82,6 +95,16 @@ class IngestService:
             report.skip("noindex")
             return
         text = normalise_text(extracted.text)
+        title = (extracted.title or _fallback_title(document_id))[:_MAX_TITLE_CHARS]
+        if self._settings.quarantine:
+            text, removed = quarantine(text)
+            if page_instruction_reason(title) is not None:  # a title goes into every prompt that cites the page
+                removed.append(title)
+                title = _fallback_title(document_id)
+            report.quarantined_total += len(removed)
+            report.quarantined.extend(
+                Quarantined(document_id, s[:300]) for s in removed[: MAX_REPORTED_QUARANTINED - len(report.quarantined)]
+            )
         if not text:
             report.skip("empty")
             return
@@ -89,7 +112,7 @@ class IngestService:
             tenant_id=tenant_id,
             document_id=document_id,
             url=page.url,
-            title=(extracted.title or _fallback_title(document_id))[:_MAX_TITLE_CHARS],
+            title=title,
             text=text,
         )
         chunks = chunk_document(document, self._settings.chunking)

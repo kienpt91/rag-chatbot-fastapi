@@ -93,7 +93,11 @@ class Service:
 
 
 def build_service(
-    settings: ChatSettings | None = None, chat: ScriptedChat | None = None, *, gullible: bool = False
+    settings: ChatSettings | None = None,
+    chat: ScriptedChat | None = None,
+    *,
+    gullible: bool = False,
+    quarantine: bool = True,
 ) -> Service:
     settings = settings or ChatSettings(canary=CANARY, confidence_threshold=0.15)
     chunks = InMemoryChunkStore(dimensions=DIMENSIONS)
@@ -116,7 +120,7 @@ def build_service(
         ids=ids,
         settings=settings,
     )
-    ingest = IngestService(chunks, embedder, PRICES, IngestSettings())
+    ingest = IngestService(chunks, embedder, PRICES, IngestSettings(quarantine=quarantine))
     return Service(service, ingest, chunks, sessions, ledger, embedder, chat, clock, ids, settings)
 
 

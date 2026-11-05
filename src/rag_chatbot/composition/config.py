@@ -77,7 +77,8 @@ class _Reader:
         self._env = env
 
     def text(self, name: str, default: str = "") -> str:
-        return self._env.get(PREFIX + name, default).strip()
+        value = self._env.get(PREFIX + name, "")
+        return (value if value.strip() else default).strip()  # an empty variable counts as unset (compose passes some)
 
     def secret(self, name: str) -> str | None:
         """The value of RAG_<name>, or the contents of the file named by RAG_<name>_FILE (not both)."""
@@ -179,6 +180,7 @@ def parse_settings(env: Mapping[str, str]) -> Settings:
         ),
         embed_batch_size=read.integer("EMBED_BATCH_SIZE", 32, low=1, high=256),
         max_chunks_per_document=read.integer("MAX_CHUNKS_PER_DOCUMENT", 300, low=1, high=10_000),
+        quarantine=read.flag("QUARANTINE_INSTRUCTIONS", True),
     )
     http = HttpSettings(
         max_body_bytes=read.integer("MAX_BODY_BYTES", 16 * 1024, low=256, high=1_000_000),

@@ -50,6 +50,7 @@ class IngestSettings:
     chunking: ChunkingConfig = field(default_factory=ChunkingConfig)
     embed_batch_size: int = 32
     max_chunks_per_document: int = 300
+    quarantine: bool = True  # leave instruction-like sentences of a page out of the index (domain/quarantine.py)
 
     def __post_init__(self) -> None:
         if self.embed_batch_size < 1 or self.max_chunks_per_document < 1:

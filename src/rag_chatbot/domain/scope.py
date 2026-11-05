@@ -43,6 +43,45 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+_PAGE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("reply_directive", re.compile(r"\breply\s*:\s*\S")),
+    (
+        "addresses_the_assistant",
+        re.compile(
+            r"\b(?:assistant|chatbot|bot|language model)\b\W+(?:\w+\W+){0,3}?(?:must|should|shall|has to|have to|always)\b"
+        ),
+    ),
+    (
+        "tells_visitors",
+        re.compile(
+            r"\b(?:tell|inform|instruct|notify|advise)\s+(?:all\s+|the\s+|every\s+)?(?:visitors?|users?|customers?|readers?)\s+(?:that|to)\b"
+        ),
+    ),
+)
+
+
+def injection_reason(text: str) -> str | None:
+    """The name of the instruction pattern a text matches (override, extraction, role hijack), or None."""
+    folded = fold(text)
+    for reason, pattern in _PATTERNS:
+        if pattern.search(folded):
+            return reason
+    return None
+
+
+def page_instruction_reason(text: str) -> str | None:
+    """Like `injection_reason`, plus wordings that only make sense on a page written to be read by an assistant
+    (`REPLY: ...`, "the assistant must ...", "tell the visitors that ...")."""
+    reason = injection_reason(text)
+    if reason is not None:
+        return reason
+    folded = fold(text)
+    for name, pattern in _PAGE_PATTERNS:
+        if pattern.search(folded):
+            return name
+    return None
+
+
 def check_message(message: str, extra_phrases: Sequence[str] = ()) -> str | None:
     """None when the message may be answered, else a short reason code (`empty`, `too_long`, a pattern name or
     `blocked_phrase`)."""
@@ -50,10 +89,10 @@ def check_message(message: str, extra_phrases: Sequence[str] = ()) -> str | None
         return "empty"
     if len(message) > MAX_MESSAGE_CHARS:
         return "too_long"
+    reason = injection_reason(message)
+    if reason is not None:
+        return reason
     folded = fold(message)
-    for reason, pattern in _PATTERNS:
-        if pattern.search(folded):
-            return reason
     for phrase in extra_phrases:
         needle = fold(phrase)
         if needle and needle in folded:
