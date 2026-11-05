@@ -8,7 +8,9 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
-    # requirements.in and requirements-dev.in are the inputs, the .txt files the hashed locks: after merging an update,
+    # Dependabot recompiles requirements.txt and requirements-dev.txt from their .in files in its own style (sorted,
+    # extras in names, setuptools dropped as unsafe): the tools read that. The build backend lives in requirements-build.txt
+    # without an .in file so that it survives. requirements.in and requirements-dev.in are the inputs, the .txt files the hashed locks: after merging an update,
     # run scripts/lock-deps.py for both (see RELEASING.md); CI fails while an input and its lock disagree
   - package-ecosystem: docker
     directory: /

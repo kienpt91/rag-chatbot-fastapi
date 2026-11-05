@@ -7,7 +7,6 @@ coverage==7.17.0
 mypy==2.4.0
 ruff==0.17.2
 build==1.6.1
-setuptools==84.2.1
 httpx2==2.16.0
 # transitive
 ast-serialize==0.13.1

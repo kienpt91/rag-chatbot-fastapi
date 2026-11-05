@@ -28,8 +28,6 @@ ruff==0.17.2 \
     --hash=sha256:c60f93fec7142dba5b8f487f94bf2f6231dae24dc11e4c48648347c8b0720004
 build==1.6.1 \
     --hash=sha256:ecd351a4be9d35a9eaaba244a7687143c9c7d4aea6ac964e7e7ddab20cbcf4e7
-setuptools==84.2.1 \
-    --hash=sha256:ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2
 httpx2==2.16.0 \
     --hash=sha256:fd2c5d7909e8d86fe92d53020c310ca0e4e431b838c207c5754b9bbf0308d49a
 ast-serialize==0.13.1 \

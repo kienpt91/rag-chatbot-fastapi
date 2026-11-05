@@ -116,7 +116,7 @@ The architecture is enforced by `tests/architecture/test_layers.py` (an AST lint
 
 ## Dependencies (exact pins, sha256 hashes, every file at least seven days old at the 2026-10-24 cutoff)
 
-`python scripts/check-dep-age.py` verifies the age and that each lock matches its input; both locks are in `requirements*.txt`.
+`python scripts/check-dep-age.py` verifies the age and that each lock matches its input (the build lock: age and hashes only); the locks are `requirements.txt`, `requirements-dev.txt` and `requirements-build.txt`. Lock files rewritten by Dependabot (sorted, with extras such as `coverage[toml]`) are read correctly.
 
 Runtime (`requirements.in`):
 
@@ -135,7 +135,8 @@ Development (`requirements-dev.in`; none is installed in the service image):
 
 - `pytest`, `pytest-cov`, `coverage`: tests and the coverage thresholds. `iniconfig`, `packaging`, `pluggy`, `pygments`: pytest's closure.
 - `mypy` (strict), with `ast-serialize`, `librt`, `mypy-extensions`, `pathspec`: type checking. `ruff`: format and lint.
-- `build`, `setuptools`, `pyproject-hooks`: the reproducible sdist and wheel.
+- `build`, `pyproject-hooks`: the reproducible sdist and wheel. `setuptools` (the build backend) has its own hashed lock,
+  `requirements-build.txt`, with no `.in` file: a tool that recompiles `.in` files drops it as "unsafe" and the build then fails.
 - `httpx2`: Starlette's test client now expects it; `httpcore2` and `truststore` are its closure.
 
 ## What is not verified

@@ -58,6 +58,7 @@ from the tagged commit. Do both.
   `PY_NET=bridge sh scripts/py.sh 'python scripts/lock-deps.py 2026-10-29 requirements-dev.in' > requirements-dev.txt` (the argument is the
   cutoff: today minus seven days), review the diff, `sh scripts/py.sh install`, `sh scripts/verify.sh`. `scripts/lock-deps.py`
   refuses a file uploaded after the cutoff; CI runs `scripts/check-dep-age.py` and fails while the `.in` and `.txt` disagree.
+- **The build backend:** `requirements-build.txt` has no input file. Change the pin in `pyproject.toml` (`[build-system]`) and regenerate: `printf 'setuptools==NEW\n' > out/build.in; PY_NET=bridge sh scripts/py.sh 'python scripts/lock-deps.py CUTOFF out/build.in' > requirements-build.txt` (a test keeps the two equal).
 - **The runtime packages:** the same with `requirements.in` and `requirements.txt`; also update the exact pins in `pyproject.toml` (a test keeps them equal to the lock).
 - **The Python image:** pick a tag of the official `python` image whose index was pushed at least seven days ago, take
   the digest of the multi-arch index, update the digests and dates in `scripts/py.sh`, `scripts/eval-real.sh` and the `Dockerfile`, run the

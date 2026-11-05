@@ -4,7 +4,7 @@
 # venv volume. The container has no access to $HOME or host env, drops all capabilities, runs as a non-root
 # user, has no network except for `install`, and is limited to 4 CPUs and 6 GiB.
 #
-# usage: scripts/py.sh install            create the venv and install requirements.txt + requirements-dev.txt (--require-hashes)
+# usage: scripts/py.sh install            create the venv and install requirements.txt, requirements-dev.txt and requirements-build.txt (--require-hashes)
 #        scripts/py.sh <shell command>    run a command with the venv on PATH, no network
 #   PY_VERSION=3.13 (default) or 3.12
 #   PY_RW=1          mount the source read-write (only for `ruff format` and `ruff check --fix`)
@@ -44,7 +44,7 @@ docker run --rm -u 0 -v "$vol:/venv" "$image" chown "$(id -u):$(id -g)" /venv > 
 
 if [ "$1" = install ]; then
   net=bridge
-  cmd='[ -x /venv/bin/python ] || python -m venv /venv; /venv/bin/python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements.txt -r requirements-dev.txt'
+  cmd='[ -x /venv/bin/python ] || python -m venv /venv; /venv/bin/python -m pip install --disable-pip-version-check --no-deps --require-hashes -r requirements.txt -r requirements-dev.txt -r requirements-build.txt'
 else
   net=${PY_NET:-none}
   cmd="$*"
