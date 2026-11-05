@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Chat widget demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- A strict policy: the widget works without 'unsafe-inline' because it styles itself through the CSSOM. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' http://127.0.0.1:8000; connect-src http://127.0.0.1:8000 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'">
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <h1>Chat widget demo</h1>
+  <p>
+    Serve this folder over HTTP (for example <code>python -m http.server 8080</code> inside
+    <code>examples/widget</code>), run the API on port 8000, put a token from the CLI into
+    <code>token.json</code>, then use the chat button in the corner.
+  </p>
+  <!-- data-token-url fetches {"token": "..."} on first use; data-token would embed the token in the page instead. -->
+  <script src="http://127.0.0.1:8000/widget.js"
+          data-api-url="http://127.0.0.1:8000"
+          data-token-url="token.json"></script>
+</body>
+</html>

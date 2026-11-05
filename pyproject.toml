@@ -42,6 +42,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 rag_chatbot = ["py.typed"]
+"rag_chatbot.widget" = ["rag-chat.js"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]

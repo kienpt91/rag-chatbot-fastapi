@@ -1,0 +1,14 @@
+body {
+  max-width: 40rem;
+  margin: 3rem auto;
+  padding: 0 1rem;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  color: #1b1f24;
+}
+
+code {
+  background: #f1f3f5;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+}
