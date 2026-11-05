@@ -13,8 +13,8 @@ services:
       interval: 3s
       timeout: 3s
       retries: 30
-    ports:
-      - "127.0.0.1:5432:5432"
+    # the database is reachable from the other services only; to use psql from the host, add
+    #   ports: ["127.0.0.1:5433:5432"]
     cap_drop: [ALL]
     cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
     security_opt: ["no-new-privileges:true"]

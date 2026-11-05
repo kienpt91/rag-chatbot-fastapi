@@ -90,8 +90,8 @@ test_server_process.py::test_sigterm_stops_the_server_cleanly PASSED [100%]
 | composition | 94.6% | - |
 | **overall** | **97.3%** (branches 94.0%) | 85% |
 
-Python tests: **1,891** passed (domain 1,078, application 66, infrastructure 425 incl. the real-database RLS, migration and
-store-contract suites, API 94, composition 61, end-to-end 9, architecture 146, docs and scripts 12) on Python 3.13 in the
+Python tests: **1,904** passed (domain 1,078, application 66, infrastructure 425 incl. the real-database RLS, migration and
+store-contract suites, API 94, composition 61, end-to-end 9, architecture 146, docs, scripts and version 25) on Python 3.13 in the
 pinned container; widget tests under Node 22: **91** passed (`scripts/test-widget.sh`, a fake DOM, no network). The CI
 workflow also runs the suite on Python 3.12; that matrix leg has not been run locally. The evaluation set: 30/30 quality and
 14/14 safety cases with the fake provider; with the answer checks disabled, six safety and five quality cases fail.
@@ -141,8 +141,10 @@ Development (`requirements-dev.in`; none is installed in the service image):
 - **A real model.** Nothing here called a hosted chat or embedding API. The HTTP provider is tested against a local server
   that speaks the common wire format; the defences are tested with scripted and gullible fakes. Run `scripts/eval-real.sh`
   with your provider before trusting a threshold.
-- **The compose stack end to end.** The image builds and `docker-compose.yml` was written against the same pinned images, but
-  `docker compose up` was not run to completion. The role-creation step (`docker/create-service-role.sql`) is the part to try first.
+- **The compose stack beyond start-up.** `docker compose up` was run: the database, the migrations, the service role and the
+  read-only non-root service came up, `/readyz` answered ready and `/chat` answered with the "I don't know" refusal of an
+  empty knowledge base. Ingestion inside compose (the `docker compose run ... ingest` command in docs/deployment.md) and a
+  grounded answer through it were not run; the same ingestion is covered by the tests against the same database image.
 - **Python 3.12** and the **GitHub workflows** were not run (the workflows reuse the local scripts, which were).
 - **Supabase itself**: the migrations are plain SQL tested on PostgreSQL + pgvector; the policies use `auth.uid()` and the
   `anon`/`authenticated` roles as Supabase defines them, but a hosted project was not used.

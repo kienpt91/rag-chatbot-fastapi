@@ -3,18 +3,24 @@
 ## Local development
 
 ```sh
-cp .env.example .env                                   # placeholders only; edit the two passwords
-sh scripts/py.sh install                               # once: the pinned packages in a container volume
-docker run --rm -v "$PWD:/work" -w /work python@sha256:d98cc29d3266e535dd9da1099688d9cb3ca4753813571e071763d17725460962 \
-  true                                                 # (optional) pull the pinned image
-# a tenants file with a fresh key: the key is printed once
-PYTHONPATH=src python3 -m rag_chatbot init-tenant --id maple --name "Maple Street Bakery" --origin http://localhost:8080 --out tenants.json
-docker compose up --build -d                           # database, migrations, the service role, the service
+cp .env.example .env                       # placeholders only: set the two passwords (no spaces)
+docker build -t rag-chatbot-fastapi:local .
+# a tenants file with a fresh key; the API key is printed once and only its hash is stored
+docker run --rm -v "$PWD:/out" --entrypoint python rag-chatbot-fastapi:local -m rag_chatbot \
+  init-tenant --id maple --name "Maple Street Bakery" --origin http://localhost:8080 --out /out/tenants.json
+docker compose up -d --build               # database, migrations, the service role, the service (127.0.0.1:8000)
+curl http://127.0.0.1:8000/readyz          # {"status":"ready"}
 ```
 
-Then ingest the sample site (the ingestion CLI is the same image):
-`docker compose run --rm app ingest --tenant maple --folder /app/../site ...` needs the site mounted; the simplest
-route is `scripts/py.sh`-style runs shown in the README demo. The service listens on `127.0.0.1:8000`.
+Then put content in. The ingestion CLI is the same image; mount the folder you want to read:
+
+```sh
+docker compose run --rm -v "$PWD/examples/site:/site:ro" app ingest --tenant maple --folder /site \
+  --base-url http://localhost:8080 --exclude community-notes
+```
+
+The database is not published to the host (the port may be taken): to use `psql` from the host, add
+`ports: ["127.0.0.1:5433:5432"]` to the `db` service. `docker compose down -v` removes everything, data included.
 
 ## Production notes
 
