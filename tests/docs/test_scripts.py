@@ -118,5 +118,10 @@ def test_the_build_backend_has_its_own_hashed_lock_that_a_lock_rewrite_cannot_dr
 
 
 def test_the_install_step_and_the_age_check_cover_the_build_lock() -> None:
-    assert "requirements-build.txt" in (ROOT / "scripts/py.sh").read_text()
-    assert "requirements-build.txt" in (ROOT / "scripts/check-dep-age.py").read_text()
+    assert "-r requirements-build.txt" in (ROOT / "scripts/py.sh").read_text()
+    pairs = {lock.name: source.name if source else None for lock, source in load("check-dep-age").default_pairs()}
+    assert pairs == {
+        "requirements.txt": "requirements.in",
+        "requirements-dev.txt": "requirements-dev.in",
+        "requirements-build.txt": None,
+    }

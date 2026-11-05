@@ -125,6 +125,16 @@ def check_lock(lock: Path, input_file: Path | None, index: str, cutoff: datetime
     return (1 if too_new else 0), files_checked, too_new
 
 
+def default_pairs() -> list[tuple[Path, Path | None]]:
+    """The locks of the project and the input file each must match (None: only age and hashes are checked, because
+    the build backend's lock has no input file on purpose, see requirements-build.txt)."""
+    return [
+        (ROOT / "requirements.txt", ROOT / "requirements.in"),
+        (ROOT / "requirements-dev.txt", ROOT / "requirements-dev.in"),
+        (ROOT / "requirements-build.txt", None),
+    ]
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="check-dep-age.py", add_help=True)
     parser.add_argument("cutoff", nargs="?")
@@ -148,14 +158,7 @@ def main(argv: list[str]) -> int:
     if not index_is_acceptable(args.index):
         print("the index must be an https URL (or http on loopback)", file=sys.stderr)
         return 2
-    pairs = (
-        [(Path(args.lock), Path(args.input))]
-        if args.lock
-        else [
-            (ROOT / "requirements.txt", ROOT / "requirements.in"),
-            (ROOT / "requirements-dev.txt", ROOT / "requirements-dev.in"),
-        ]
-    )
+    pairs = [(Path(args.lock), Path(args.input))] if args.lock else default_pairs()
     problems: list[str] = []
     worst = 0
     for lock, input_file in pairs:
