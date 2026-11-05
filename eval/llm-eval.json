@@ -1,0 +1,20 @@
+{
+  "dataset": "datasets/site.jsonl",
+  "provider": {
+    "type": "command",
+    "argv": ["python3", "pipeline.py"],
+    "env_set": {
+      "RAG_PROVIDER": "fake",
+      "RAG_FAKE_GULLIBLE": "true",
+      "RAG_CONFIDENCE_THRESHOLD": "0.10",
+      "RAG_CHUNK_TARGET_TOKENS": "60",
+      "RAG_CHUNK_MAX_TOKENS": "100",
+      "RAG_CHUNK_OVERLAP_TOKENS": "10",
+      "RAG_CHUNK_MIN_TOKENS": "15"
+    },
+    "env_allow": []
+  },
+  "out_dir": "out",
+  "defaults": { "repeat": 1, "concurrency": 2, "timeout_s": 60, "retries": 0 },
+  "gate": { "deterministic": true }
+}

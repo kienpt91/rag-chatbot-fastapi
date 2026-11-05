@@ -218,3 +218,38 @@ def test_pages_is_an_async_generator_that_can_be_abandoned_early(root: Path) -> 
         return page
 
     assert asyncio.run(first()).location == "f0.txt"
+
+
+# --- the --exclude filter ---------------------------------------------------------------------------------------------
+
+
+def test_the_filter_drops_pages_by_location_or_document_id_and_counts_them(tmp_path: Path) -> None:
+    import asyncio
+
+    from rag_chatbot.infrastructure.sources.filtered import FilteredSource
+
+    (tmp_path / "reviews").mkdir()
+    for name in ("index.html", "reviews/all.html", "reviews/more.md", "notes.txt", "faq.md"):
+        (tmp_path / name).write_text("text here")
+    inner = FolderSource(tmp_path)
+    source = FilteredSource(inner, ["reviews/*", "notes"])
+
+    async def collect() -> list[str]:
+        return [page.location async for page in source.pages()]
+
+    assert asyncio.run(collect()) == ["faq.md", "index.html"]
+    assert source.excluded == 3 and source.report.pages == 5  # the wrapped source's report is the one shown
+
+
+def test_a_filter_without_patterns_lets_everything_through(tmp_path: Path) -> None:
+    import asyncio
+
+    from rag_chatbot.infrastructure.sources.filtered import FilteredSource
+
+    (tmp_path / "a.txt").write_text("text here")
+    source = FilteredSource(FolderSource(tmp_path), [])
+
+    async def collect() -> list[str]:
+        return [page.location async for page in source.pages()]
+
+    assert asyncio.run(collect()) == ["a.txt"] and source.excluded == 0

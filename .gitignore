@@ -39,3 +39,6 @@ service-account*.json
 
 # the operator's real tenant file (the example one is tracked)
 /tenants.json
+
+# real-provider evaluation settings (the example is tracked)
+/eval/real.env

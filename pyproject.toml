@@ -103,3 +103,4 @@ quote-style = "double"
 "tests/**" = ["S", "ARG", "PLC0415", "RUF012", "PT011", "PT012", "PT018", "RUF001", "A002", "ASYNC"]
 "scripts/**" = ["S603", "S607", "S310", "PLC0415"]
 "eval/**" = ["S", "PLC0415"]
+"src/rag_chatbot/composition/commands.py" = ["ARG001"]  # every command takes the same four arguments

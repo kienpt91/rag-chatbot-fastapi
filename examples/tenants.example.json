@@ -1,0 +1,14 @@
+{
+  "tenants": [
+    {
+      "id": "maple",
+      "name": "Maple Street Bakery",
+      "allowed_origins": ["https://www.maple-street-bakery.example", "http://localhost:8080"],
+      "api_key_sha256": [],
+      "token_secrets": [],
+      "daily_budget": "2.00",
+      "refusal_message": "I don't know that one. Please call the bakery on +1 555 0142.",
+      "link_hosts": []
+    }
+  ]
+}

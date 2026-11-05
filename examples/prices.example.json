@@ -1,0 +1,9 @@
+{
+  "currency": "USD",
+  "models": {
+    "fake-chat-1": { "input_per_mtok": 1, "output_per_mtok": 3 },
+    "fake-embedding-1": { "input_per_mtok": 0.1 },
+    "your-chat-model": { "input_per_mtok": 0.15, "output_per_mtok": 0.6 },
+    "your-embedding-model": { "input_per_mtok": 0.02 }
+  }
+}
