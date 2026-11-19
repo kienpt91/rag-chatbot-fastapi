@@ -26,11 +26,11 @@ classifiers = [
 # The top-level runtime packages, exact pins. Their pinned, hash-checked closure is requirements.txt (see
 # requirements.in); a test keeps the two in step. Each one is justified in the README.
 dependencies = [
-  "fastapi==0.162.0",
+  "fastapi==0.162.5",
   "uvicorn==0.54.0",
-  "pydantic==2.14.1",
-  "psycopg==3.3.6",
-  "psycopg-binary==3.3.6",
+  "pydantic==2.14.3",
+  "psycopg==3.3.9",
+  "psycopg-binary==3.3.9",
   "psycopg-pool==3.3.3",
 ]
 
